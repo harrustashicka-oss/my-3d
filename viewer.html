@@ -26,18 +26,23 @@
     const viewer = document.getElementById('viewer');
     const params = new URLSearchParams(location.search);
     viewer.src =(params.get('model') || 'model1.glb');
-  </script>
-<script>
+ <script>
   const mv = document.querySelector('model-viewer');
-
-  // 区分"点击"和"拖动"
-  let downX = 0, downY = 0, moved = false;
-
-  mv.addEventListener('pointerdown', (e) => {
-    downX = e.clientX;
-    downY = e.clientY;
-    moved = false;
+  let expanded = false;
+  let downX, downY, moved;
+  mv.addEventListener('pointerdown', e => {
+    downX = e.clientX; downY = e.clientY; moved = false;
   });
+  mv.addEventListener('pointermove', e => {
+    if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) moved = true;
+  });
+  mv.addEventListener('pointerup', () => {
+    if (moved) return;        // 拖动了，不触发
+    mv.timeScale = expanded ? -1 : 1;
+    mv.play({repetitions: 1});
+    expanded = !expanded;
+  });
+</script>
 
   mv.addEventListener('pointermove', (e) => {
     if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) {
