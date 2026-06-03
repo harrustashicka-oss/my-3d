@@ -26,5 +26,17 @@
     const params = new URLSearchParams(location.search);
     viewer.src =(params.get('model') || 'model1.glb');
   </script>
+<script>
+  const mv = document.querySelector('model-viewer');
+  let playing = false;
+  mv.addEventListener('click', () => {
+    if (playing) {
+      mv.pause();      // 暂停
+    } else {
+      mv.play();       // 播放
+    }
+    playing = !playing;
+  });
+</script>
 </body>
 </html>
