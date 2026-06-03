@@ -19,8 +19,7 @@
     auto-rotate
     auto-rotate-delay="0"
     shadow-intensity="1"
-    touch-action="pan-y"
-    camera-orbit="0deg 75deg 200%">
+    touch-action="pan-y">
   </model-viewer>
   <script>
     const viewer = document.getElementById('viewer');
@@ -38,8 +37,8 @@
       if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) moved = true;
     });
     mv.addEventListener('pointerup', () => {
-      if (moved) return;                 // 拖动了，不触发
-      mv.timeScale = expanded ? -1 : 1;  // 偶数次倒放，奇数次正放
+      if (moved) return;
+      mv.timeScale = expanded ? -1 : 1;
       mv.play({ repetitions: 1 });
       expanded = !expanded;
     });
