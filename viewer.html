@@ -25,36 +25,24 @@
   <script>
     const viewer = document.getElementById('viewer');
     const params = new URLSearchParams(location.search);
-    viewer.src =(params.get('model') || 'model1.glb');
- <script>
-  const mv = document.querySelector('model-viewer');
-  let expanded = false;
-  let downX, downY, moved;
-  mv.addEventListener('pointerdown', e => {
-    downX = e.clientX; downY = e.clientY; moved = false;
-  });
-  mv.addEventListener('pointermove', e => {
-    if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) moved = true;
-  });
-  mv.addEventListener('pointerup', () => {
-    if (moved) return;        // 拖动了，不触发
-    mv.timeScale = expanded ? -1 : 1;
-    mv.play({repetitions: 1});
-    expanded = !expanded;
-  });
-</script>
-
-  mv.addEventListener('pointermove', (e) => {
-    if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) {
-      moved = true;   // 移动超过5像素，算拖动
-    }
-  });
-
-  mv.addEventListener('pointerup', () => {
-    if (moved) return;        // 是拖动，不触发动画
-    mv.currentTime = 0;       // 从头开始
-    mv.play({ repetitions: 1 }); // 只播放一遍
-  });
-</script>
+    viewer.src = (params.get('model') || 'model1.glb');
+  </script>
+  <script>
+    const mv = document.querySelector('model-viewer');
+    let expanded = false;
+    let downX, downY, moved;
+    mv.addEventListener('pointerdown', e => {
+      downX = e.clientX; downY = e.clientY; moved = false;
+    });
+    mv.addEventListener('pointermove', e => {
+      if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) moved = true;
+    });
+    mv.addEventListener('pointerup', () => {
+      if (moved) return;                 // 拖动了，不触发
+      mv.timeScale = expanded ? -1 : 1;  // 偶数次倒放，奇数次正放
+      mv.play({ repetitions: 1 });
+      expanded = !expanded;
+    });
+  </script>
 </body>
 </html>
