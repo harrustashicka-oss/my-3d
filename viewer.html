@@ -28,14 +28,26 @@
   </script>
 <script>
   const mv = document.querySelector('model-viewer');
-  let playing = false;
-  mv.addEventListener('click', () => {
-    if (playing) {
-      mv.pause();      // 暂停
-    } else {
-      mv.play();       // 播放
+
+  // 区分"点击"和"拖动"
+  let downX = 0, downY = 0, moved = false;
+
+  mv.addEventListener('pointerdown', (e) => {
+    downX = e.clientX;
+    downY = e.clientY;
+    moved = false;
+  });
+
+  mv.addEventListener('pointermove', (e) => {
+    if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) {
+      moved = true;   // 移动超过5像素，算拖动
     }
-    playing = !playing;
+  });
+
+  mv.addEventListener('pointerup', () => {
+    if (moved) return;        // 是拖动，不触发动画
+    mv.currentTime = 0;       // 从头开始
+    mv.play({ repetitions: 1 }); // 只播放一遍
   });
 </script>
 </body>
