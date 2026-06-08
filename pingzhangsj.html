@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>建筑搭建演示</title>
+  <script type="module"
+    src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js">
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    model-viewer { width: 100%; height: 100%; background: #e0e0e0; }
+    #tip {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: #fff; padding: 8px 16px;
+      border-radius: 20px; font-family: sans-serif; font-size: 14px;
+      z-index: 10; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="tip">点击屏幕：搭建下一步</div>
+  <model-viewer
+    id="viewer"
+    camera-controls
+    shadow-intensity="1"
+    touch-action="pan-y"
+    min-camera-orbit="auto auto 5%"
+    max-camera-orbit="auto auto 200%">
+  </model-viewer>
+  <script>
+    const viewer = document.getElementById('viewer');
+    const tip = document.getElementById('tip');
+    const steps = ['step1.glb', 'step2.glb', 'step3.glb', 'step4.glb', 'step5.glb'];
+    const labels = ['底座', '加柱子', '加墙体', '加房顶', '完整建筑'];
+    let index = 0;
+    viewer.src = steps[index];
+    tip.textContent = labels[index] + '（点击继续）';
+    viewer.addEventListener('click', () => {
+      if (index < steps.length - 1) {
+        index++;
+        viewer.src = steps[index];
+        tip.textContent = labels[index] + (index === steps.length - 1 ? '（已完成，点击重来）' : '（点击继续）');
+      } else {
+        // 到最后一步，再点回到第一步
+        index = 0;
+        viewer.src = steps[index];
+        tip.textContent = labels[index] + '（点击继续）';
+      }
+    });
+  </script>
+</body>
+</html>
