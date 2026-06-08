@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 模型查看</title>
+ <script type="module"
+  src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js">
+</script>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    model-viewer { width: 100%; height: 100%; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <model-viewer
+    id="viewer"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="0"
+    shadow-intensity="1"
+    touch-action="pan-y">
+  </model-viewer>
+  <script>
+    const viewer = document.getElementById('viewer');
+    const params = new URLSearchParams(location.search);
+    viewer.src = (params.get('model') || 'model2.glb');
+  </script>
+  <script>
+    const mv = document.querySelector('model-viewer');
+    let expanded = false;
+    let downX, downY, moved;
+    mv.addEventListener('pointerdown', e => {
+      downX = e.clientX; downY = e.clientY; moved = false;
+    });
+    mv.addEventListener('pointermove', e => {
+      if (Math.abs(e.clientX - downX) > 5 || Math.abs(e.clientY - downY) > 5) moved = true;
+    });
+    mv.addEventListener('pointerup', () => {
+      if (moved) return;
+      mv.timeScale = expanded ? -1 : 1;
+      mv.play({ repetitions: 1 });
+      expanded = !expanded;
+    });
+  </script>
+</body>
+</html>
