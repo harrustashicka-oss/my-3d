@@ -9,7 +9,7 @@
 </script>
   <style>
     html, body { margin: 0; height: 100%; }
-    model-viewer { width: 100%; height: 100%; background: #f0f0f0; }
+    model-viewer { width: 100%; height: 100%; background:#e0e0e0; }
   </style>
 </head>
 <body>
@@ -19,7 +19,9 @@
     auto-rotate
     auto-rotate-delay="0"
     shadow-intensity="1"
-    touch-action="pan-y">
+    touch-action="pan-y"
+    min-camera-orbit="auto auto 5%"
+    max-camera-orbit="auto auto 300%">
   </model-viewer>
   <script>
     const viewer = document.getElementById('viewer');
