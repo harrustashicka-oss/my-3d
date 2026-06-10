@@ -29,25 +29,43 @@
     max-camera-orbit="auto auto 200%">
   </model-viewer>
   <script>
-    const viewer = document.getElementById('viewer');
-    const tip = document.getElementById('tip');
-    const steps = ['step1.glb', 'step2.glb', 'step3.glb', 'step4.glb', 'step5.glb'];
-    const labels = ['底座', '加柱子', '加墙体', '加房顶', '完整建筑'];
-    let index = 0;
-    viewer.src = steps[index];
-    tip.textContent = labels[index] + '（点击继续）';
-    viewer.addEventListener('click', () => {
-      if (index < steps.length - 1) {
-        index++;
-        viewer.src = steps[index];
-        tip.textContent = labels[index] + (index === steps.length - 1 ? '（已完成，点击重来）' : '（点击继续）');
-      } else {
-        // 到最后一步，再点回到第一步
-        index = 0;
-        viewer.src = steps[index];
-        tip.textContent = labels[index] + '（点击继续）';
-      }
-    });
+const viewer = document.getElementById('viewer');
+const tip = document.getElementById('tip');
+const steps = ['01.glb', '02.glb', '03.glb', '04.glb', '05.glb'];
+const labels = ['底座', '加柱子', '加墙体', '加房顶', '完整建筑'];
+let index = 0;
+viewer.src = steps[index];
+tip.textContent = labels[index] + '（点击继续）';
+
+// ===== 以下是防误触修复 =====
+let pointerDownTime = 0;
+let pointerMoved = false;
+
+viewer.addEventListener('pointerdown', () => {
+  pointerDownTime = Date.now();
+  pointerMoved = false;
+});
+
+viewer.addEventListener('pointermove', () => {
+  pointerMoved = true;
+});
+
+viewer.addEventListener('pointerup', () => {
+  const duration = Date.now() - pointerDownTime;
+  if (duration < 300 && !pointerMoved) {
+    // 短按且没拖动，才算真正的"点击"
+    if (index < steps.length - 1) {
+      index++;
+      viewer.src = steps[index];
+      tip.textContent = labels[index] + (index === steps.length - 1 ? '（已完成，点击重来）' : '（点击继续）');
+    } else {
+      index = 0;
+      viewer.src = steps[index];
+      tip.textContent = labels[index] + '（点击继续）';
+    }
+  }
+});
+
   </script>
 </body>
 </html>
