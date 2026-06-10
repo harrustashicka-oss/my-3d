@@ -9,7 +9,13 @@
   </script>
   <style>
     html, body { margin: 0; height: 100%; }
-    model-viewer { width: 100%; height: 100%; background: #e0e0e0; }
+    model-viewer {
+      width: 100%; height: 100%;
+      /* 深色背景让白色模型凸显 */
+      background: #2a2a2a;
+      /* 增强边缘对比 */
+      --poster-color: #2a2a2a;
+    }
     #tip {
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.6); color: #fff; padding: 8px 16px;
@@ -23,7 +29,10 @@
   <model-viewer
     id="viewer"
     camera-controls
-    shadow-intensity="1"
+    shadow-intensity="1.5"
+    shadow-softness="0.8"
+    exposure="1.2"
+    environment-image="neutral"
     touch-action="pan-y"
     min-camera-orbit="auto auto 5%"
     max-camera-orbit="auto auto 200%">
@@ -37,7 +46,6 @@ let index = 0;
 viewer.src = steps[index];
 tip.textContent = labels[index] + '（点击继续）';
 
-// ===== 以下是防误触修复 =====
 let pointerDownTime = 0;
 let pointerMoved = false;
 
@@ -53,7 +61,6 @@ viewer.addEventListener('pointermove', () => {
 viewer.addEventListener('pointerup', () => {
   const duration = Date.now() - pointerDownTime;
   if (duration < 300 && !pointerMoved) {
-    // 短按且没拖动，才算真正的"点击"
     if (index < steps.length - 1) {
       index++;
       viewer.src = steps[index];
@@ -65,7 +72,6 @@ viewer.addEventListener('pointerup', () => {
     }
   }
 });
-
   </script>
 </body>
 </html>
