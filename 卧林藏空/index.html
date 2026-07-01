@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>建筑搭建演示</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#2a2a2a;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  #canvas{display:block;width:100%;height:100%;touch-action:none}
+  .title-bar{position:absolute;top:0;left:0;right:0;padding:18px 22px 30px;
+    background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent);color:#fff;pointer-events:none;z-index:5;
+    transition:opacity .3s ease}
+  .title-bar.hide{opacity:0}
+  .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
+  .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
+  .tip{font-size:14px;margin-bottom:12px;opacity:.95}
+  .progress{display:flex;gap:6px}
+  .dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25);transition:background .4s}
+  .dot.active{background:#ffd24a}
+  .dot.done{background:rgba(255,210,74,.55)}
+  .controls{position:absolute;top:16px;right:14px;z-index:6;display:flex;gap:10px}
+  .btn{width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,.18);
+    color:#fff;backdrop-filter:blur(6px);font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .btn:active{background:rgba(255,255,255,.32)}
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#fff;font-size:14px;z-index:10;transition:opacity .4s}
+  .loading.hide{opacity:0;pointer-events:none}
+  @keyframes pulse{0%,100%{opacity:.45}50%{opacity:.9}}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="title-bar" id="titleBar">
+  <div class="title-main" id="titleMain">卧林藏空 · 卧林藏空</div>
+  <div class="title-sub" id="titleSub">第 1 / 12 步</div>
+</div>
+<div class="controls">
+  <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
+  <button class="btn" id="restartBtn" title="重新播放">▶</button>
+</div>
+<div class="bottom-bar">
+  <div class="tip" id="tip">点击屏幕搭建下一步</div>
+  <div class="progress" id="progress"></div>
+</div>
+<div class="loading" id="loading">加载中…</div>
+
+<audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  ★★★ 使用说明 ★★★                                        ║
+// ║  1. 把分步模型文件放到 models/ 文件夹                      ║
+// ║  2. 修改下方 steps 数组：填入模型文件路径                   ║
+// ║  3. 修改下方 labels 数组：填入每步的中文名称                ║
+// ║  4. 修改下方 titlePrefix：填入项目标题前缀                 ║
+// ║  5. 把背景音乐命名为 bgm.mp3 放到本文件夹                  ║
+// ╚══════════════════════════════════════════════════════════╝
+const steps=[
+  'models/model2.glb'
+  // 如果有更多分步模型，继续添加...
+  // 例如：'models/step02.glb', 'models/step03.glb' 等
+];
+const labels=[
+  '卧林藏空'
+  // 与 steps 一一对应
+];
+const titlePrefix='卧林藏空';  // 标题前缀，显示为"卧林藏空 · 第一步"
+
+// ── UI 元素 ──
+const titleBar=document.getElementById('titleBar'),
+      titleMain=document.getElementById('titleMain'),
+      titleSub=document.getElementById('titleSub'),
+      tip=document.getElementById('tip'),
+      progress=document.getElementById('progress'),
+      loading=document.getElementById('loading'),
+      bgm=document.getElementById('bgm'),
+      muteBtn=document.getElementById('muteBtn'),
+      restartBtn=document.getElementById('restartBtn');
+
+steps.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' active':'');
+  progress.appendChild(d);
+});
+
+// ── Three.js 场景 ──
+const canvas=document.getElementById('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setClearColor(0x2a2a2a);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.radius=8;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100000);
+
+// 环境光（程序化生成，不需要下载 HDR）
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+
+// 方向光 + 阴影（位置在加载完模型后根据 bounding box 调整）
+const dirLight=new THREE.DirectionalLight(0xffffff,1.5);
+dirLight.castShadow=true;
+dirLight.shadow.mapSize.set(2048,2048);
+dirLight.shadow.bias=-0.0005;
+dirLight.shadow.radius=25;
+dirLight.shadow.blurSamples=40;
+scene.add(dirLight);
+scene.add(dirLight.target);
+
+const ambLight=new THREE.AmbientLight(0xffffff,0.25);
+scene.add(ambLight);
+
+// 相机控制
+const controls=new OrbitControls(camera,canvas);
+controls.enableDamping=true;
+controls.dampingFactor=0.08;
+controls.autoRotate=true;
+controls.autoRotateSpeed=0.5;
+controls.enablePan=false;
+
+// ── 加载 glb，提取每步新增构件 ──
+const loader=new GLTFLoader();
+const stepMeshes=steps.map(()=>[]);   // stepMeshes[i] = 第 i 步新增的 mesh 数组
+const seenKeys=new Set();
+
+// 用几何体数据生成唯一标识（顶点数 + bounding box）
+function meshKey(mesh){
+  const g=mesh.geometry;
+  g.computeBoundingBox();
+  const b=g.boundingBox;
+  return [g.attributes.position.count,
+    b.min.x.toFixed(4),b.min.y.toFixed(4),b.min.z.toFixed(4),
+    b.max.x.toFixed(4),b.max.y.toFixed(4),b.max.z.toFixed(4)
+  ].join('_');
+}
+
+// 设置 mesh 透明度（处理多材质情况）
+// 材质始终保持 transparent=true + depthWrite=true，只改 opacity，避免着色器重编译卡顿
+function setOpacity(mesh,val){
+  const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+  mats.forEach(m=>{ m.opacity=val; });
+}
+function showMesh(mesh){ mesh.visible=true; }
+function hideMesh(mesh){ mesh.visible=false; mesh.castShadow=false; }
+
+async function init(){
+  for(let i=0;i<steps.length;i++){
+    const gltf=await loader.loadAsync(steps[i]);
+    gltf.scene.traverse(child=>{
+      if(child.isMesh){
+        const key=meshKey(child);
+        if(i===0||!seenKeys.has(key)){
+          // 新构件
+          seenKeys.add(key);
+          child.castShadow=true;
+          child.receiveShadow=true;
+          // clone 材质，独立控制透明度
+          if(Array.isArray(child.material)){
+            child.material=child.material.map(m=>m.clone());
+          }else{
+            child.material=child.material.clone();
+          }
+          // 统一设置：transparent=true + depthWrite=true
+          // 这样动画中只改 opacity，永远不切换材质属性，不触发着色器重编译
+          const mats=Array.isArray(child.material)?child.material:[child.material];
+          mats.forEach(mat=>{
+            mat.transparent=true;
+            mat.depthWrite=true;
+          });
+          // 初始：第 0 步显示，其他隐藏
+          if(i===0){
+            setOpacity(child,1);
+            showMesh(child);
+            child.castShadow=true;
+          }else{
+            setOpacity(child,0);
+            hideMesh(child);
+          }
+          stepMeshes[i].push(child);
+        }else{
+          // 已见构件，隐藏（不渲染，避免重叠）
+          child.visible=false;
+        }
+      }
+    });
+    scene.add(gltf.scene);
+  }
+
+  // 计算整体 bounding box，设置相机和灯光
+  const box=new THREE.Box3().setFromObject(scene);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  const maxDim=Math.max(size.x,size.y,size.z);
+  const fov=camera.fov*Math.PI/180;
+  const dist=(maxDim/2)/Math.tan(fov/2)*1.4;
+
+  camera.position.set(center.x+dist*0.2, center.y+dist*0.15, center.z+dist);
+  camera.lookAt(center);
+  camera.near=maxDim*0.01;
+  camera.far=maxDim*100;
+  camera.updateProjectionMatrix();
+  controls.target.copy(center);
+  controls.minDistance=dist*0.3;
+  controls.maxDistance=dist*3;
+  controls.update();
+
+  // 方向光位置
+  dirLight.position.set(center.x+size.x*0.8, center.y+size.y*1.5, center.z+size.z*0.6);
+  dirLight.target.position.copy(center);
+  dirLight.shadow.camera.left=-maxDim;
+  dirLight.shadow.camera.right=maxDim;
+  dirLight.shadow.camera.top=maxDim;
+  dirLight.shadow.camera.bottom=-maxDim;
+  dirLight.shadow.camera.near=0.1;
+  dirLight.shadow.camera.far=maxDim*5;
+  dirLight.shadow.camera.updateProjectionMatrix();
+
+  // 阴影地面
+  const ground=new THREE.Mesh(
+    new THREE.PlaneGeometry(maxDim*10,maxDim*10),
+    new THREE.ShadowMaterial({opacity:0.22})
+  );
+  ground.rotation.x=-Math.PI/2;
+  ground.position.y=box.min.y;
+  ground.receiveShadow=true;
+  scene.add(ground);
+
+  // 完成
+  loading.classList.add('hide');
+  updateUI();
+  animate();
+  // 纯手动模式：不自动播放，等用户点击
+}
+init().catch(err=>{loading.textContent='加载失败：'+err.message;});
+
+// ── 渲染循环 ──
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+
+// ── 构件淡入（缓慢、流畅、自然）──
+let index=0, busy=false;
+const clock=new THREE.Clock();
+
+function fadeInStep(step){
+  const meshes=stepMeshes[step];
+  // 设为可见，开始淡入
+  meshes.forEach(m=>showMesh(m));
+
+  const duration=700;
+  const startTime=performance.now();
+
+  function tick(){
+    const elapsed=performance.now()-startTime;
+    const t=Math.min(elapsed/duration,1);
+    const eased=1-Math.pow(1-t,3);
+    meshes.forEach(m=>setOpacity(m,eased));
+    if(t<1){
+      requestAnimationFrame(tick);
+    }else{
+      // 动画完成：开启阴影投射（只改 castShadow，不切换材质属性，不触发着色器重编译）
+      meshes.forEach(m=>{ m.castShadow=true; });
+    }
+  }
+  tick();
+}
+
+function fadeOutStep(step){
+  const meshes=stepMeshes[step];
+  // 先关闭阴影
+  meshes.forEach(m=>{ m.castShadow=false; });
+  const start=performance.now();
+  const duration=350;
+  const startOps=meshes.map(m=>{
+    const mat=Array.isArray(m.material)?m.material[0]:m.material;
+    return mat.opacity;
+  });
+  function tick(){
+    const t=Math.min((performance.now()-start)/duration,1);
+    meshes.forEach((m,i)=>setOpacity(m, startOps[i]*(1-t)));
+    if(t<1){
+      requestAnimationFrame(tick);
+    }else{
+      meshes.forEach(m=>hideMesh(m));
+    }
+  }
+  tick();
+}
+
+function goTo(next){
+  if(busy) return;
+  if(next===index) return;
+
+  if(next>index){
+    // 前进：淡入 next 步构件
+    busy=true;
+    titleBar.classList.add('hide');
+    // 淡入期间暂停自动旋转，避免视觉混乱
+    const wasRotating=controls.autoRotate;
+    controls.autoRotate=false;
+    fadeInStep(next);
+    setTimeout(()=>{
+      index=next;
+      controls.autoRotate=wasRotating;
+      updateUI();
+      titleBar.classList.remove('hide');
+      busy=false;
+    },750);
+  }else{
+    // 回退/重新开始：淡出 index 到 next 之间的所有步骤
+    busy=true;
+    titleBar.classList.add('hide');
+    const wasRotating=controls.autoRotate;
+    controls.autoRotate=false;
+    for(let i=index;i>next;i--){
+      fadeOutStep(i);
+    }
+    setTimeout(()=>{
+      index=next;
+      controls.autoRotate=wasRotating;
+      updateUI();
+      titleBar.classList.remove('hide');
+      busy=false;
+    },400);
+  }
+}
+
+function updateUI(){
+  titleMain.textContent=titlePrefix+' · '+labels[index];
+  titleSub.textContent='第 '+(index+1)+' / '+steps.length+' 步';
+  [...progress.children].forEach((d,i)=>{
+    d.className='dot'+(i<index?' done':i===index?' active':'');
+  });
+  tip.textContent = index===0 ? '点击屏幕搭建下一步'
+    : index<steps.length-1 ? '点击屏幕搭建下一步'
+    : '搭建完成！点击屏幕重新开始';
+}
+
+// ── 点击检测（区分拖动）──
+let pTime=0,pMoved=false;
+canvas.addEventListener('pointerdown',e=>{pTime=Date.now();pMoved=false;});
+canvas.addEventListener('pointermove',()=>{pMoved=true;});
+canvas.addEventListener('pointerup',e=>{
+  if(Date.now()-pTime<300&&!pMoved){
+    if(index<steps.length-1){
+      // 还有后续步骤，前进一步
+      goTo(index+1);
+    }else{
+      // 已到最后一步，点击从头开始
+      goTo(0);
+    }
+  }
+});
+
+// ── 配乐 ──
+let started=false;
+function startBgm(){ if(started)return; started=true; bgm.volume=0.4; bgm.play().catch(()=>{}); }
+document.addEventListener('pointerdown',startBgm);
+
+muteBtn.addEventListener('click',e=>{
+  e.stopPropagation();
+  if(bgm.paused){ bgm.play().catch(()=>{}); muteBtn.textContent='🔊'; }
+  else{ bgm.pause(); muteBtn.textContent='🔇'; }
+});
+restartBtn.addEventListener('click',e=>{
+  e.stopPropagation();
+  // 回到第 1 步，不自动播放
+  goTo(0);
+});
+
+// ── 响应式 ──
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>

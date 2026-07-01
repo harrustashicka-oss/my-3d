@@ -2,17 +2,10 @@
 *.log
 .workbuddy/
 deploy/
+upload_to_github/
 __pycache__/
 *.pyc
 
 # 系统文件
 .DS_Store
 Thumbs.db
-
-# 旧文件
-viewer.html
-check_glb.py
-模型网址.docx
-taihushi.glb
-model2.html
-qr_code.png

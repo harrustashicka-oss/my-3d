@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>模型展示 · 优化版</title>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#1a1a1a}
+  .stage{position:relative;width:100%;height:100%}
+  /* 模型逐渐显示：透明 + 轻微缩小，加载后渐显 */
+  model-viewer{
+    position:absolute;inset:0;width:100%;height:100%;
+    background:#1a1a1a;--poster-color:#1a1a1a;
+    opacity:0;transform:scale(.92);
+    transition:opacity 1.2s ease,transform 1.2s ease;
+    touch-action:pan-y;
+  }
+  model-viewer.show{opacity:1;transform:scale(1)}
+  /* 标题栏 */
+  .title-bar{position:absolute;top:0;left:0;right:0;padding:24px 26px 32px;
+    background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);color:#fff;
+    pointer-events:none;z-index:5;opacity:0;transform:translateY(-10px);
+    transition:opacity .8s ease .5s,transform .8s ease .5s}
+  .title-bar.show{opacity:1;transform:translateY(0)}
+  .title-main{font-size:24px;font-weight:700;letter-spacing:2px}
+  .title-sub{font-size:13px;opacity:.78;margin-top:6px;letter-spacing:1px}
+  /* 底部提示 */
+  .bottom-bar{position:absolute;bottom:0;left:0;right:0;
+    padding:24px 24px calc(24px + env(safe-area-inset-bottom));color:#fff;z-index:5;
+    opacity:0;transition:opacity .8s ease 1s;text-align:center}
+  .bottom-bar.show{opacity:1}
+  .tip{font-size:13px;opacity:.8}
+  /* 控制按钮 */
+  .controls{position:absolute;top:18px;right:16px;z-index:6;display:flex;gap:10px}
+  .btn{width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,.18);
+    color:#fff;backdrop-filter:blur(6px);font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .btn:active{background:rgba(255,255,255,.32)}
+  /* 加载提示 */
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#fff;font-size:13px;z-index:4;pointer-events:none;transition:opacity .4s}
+  .loading.hide{opacity:0}
+  /* 进入遮罩：点击后才开始播放音乐 + 渐显模型（解决移动端 autoplay 限制） */
+  .enter-mask{position:absolute;inset:0;z-index:10;background:#1a1a1a;
+    display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;
+    transition:opacity .6s}
+  .enter-mask.hide{opacity:0;pointer-events:none}
+  .enter-mask .play{width:78px;height:78px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;
+    justify-content:center;font-size:28px;padding-left:6px;margin:0 auto}
+  .enter-mask .txt{margin-top:18px;font-size:14px;opacity:.8;text-align:center}
+</style>
+</head>
+<body>
+<div class="stage">
+  <model-viewer id="mv" camera-controls shadow-intensity="1.2" shadow-softness="0.5" exposure="1"
+    auto-rotate auto-rotate-delay="2000"
+    environment-image="https://modelviewer.dev/shared-assets/environments/lightroom_14b.hdr"></model-viewer>
+
+  <div class="title-bar" id="titleBar">
+    <div class="title-main">模型标题</div>
+    <div class="title-sub">这里写副标题或说明文字</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
+    <button class="btn" id="rotateBtn" title="自动旋转">🔄</button>
+  </div>
+
+  <div class="bottom-bar" id="bottomBar">
+    <div class="tip">拖动旋转 · 双指缩放</div>
+  </div>
+
+  <div class="loading" id="loading">加载中…</div>
+
+  <div class="enter-mask" id="enterMask">
+    <div>
+      <div class="play">▶</div>
+      <div class="txt">点击进入</div>
+    </div>
+  </div>
+</div>
+
+<!-- 配乐：把 bgm.mp3 放到和本文件同目录，或替换为在线音频 URL -->
+<audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
+
+<script>
+const mv=document.getElementById('mv'),
+      loading=document.getElementById('loading'),
+      titleBar=document.getElementById('titleBar'),
+      bottomBar=document.getElementById('bottomBar'),
+      enterMask=document.getElementById('enterMask'),
+      bgm=document.getElementById('bgm'),
+      muteBtn=document.getElementById('muteBtn'),
+      rotateBtn=document.getElementById('rotateBtn');
+
+mv.src='models/model2.glb';
+mv.addEventListener('load',()=>{loading.classList.add('hide');});
+
+// 点击进入：播放音乐 + 模型渐显 + 标题出现
+enterMask.addEventListener('click',()=>{
+  enterMask.classList.add('hide');
+  bgm.volume=0.4; bgm.play().catch(()=>{});
+  setTimeout(()=>mv.classList.add('show'),100);          // 模型逐渐显示
+  setTimeout(()=>{titleBar.classList.add('show');bottomBar.classList.add('show');},400);
+});
+
+// 音乐开关
+muteBtn.addEventListener('click',()=>{
+  if(bgm.paused){ bgm.play().catch(()=>{}); muteBtn.textContent='🔊'; }
+  else{ bgm.pause(); muteBtn.textContent='🔇'; }
+});
+
+// 自动旋转开关
+let rotating=true;
+rotateBtn.addEventListener('click',()=>{
+  rotating=!rotating; mv.autoRotate=rotating;
+  rotateBtn.style.opacity=rotating?'1':'.5';
+});
+</script>
+</body>
+</html>
