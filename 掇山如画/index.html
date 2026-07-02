@@ -23,7 +23,7 @@
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
+    background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5;pointer-events:none}
   .tip{font-size:14px;margin-bottom:12px;opacity:.95}
   .progress{display:flex;gap:6px}
   .dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25);transition:background .4s}
@@ -48,6 +48,10 @@
     border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;
     justify-content:center;font-size:30px;padding-left:6px;margin:0 auto}
   .enter-mask .label{margin-top:18px;font-size:15px;opacity:.8;text-align:center}
+  /* 调试面板 */
+  .debug-panel{position:absolute;top:10px;right:60px;z-index:30;
+    background:rgba(0,0,0,.75);color:#0f0;font-size:11px;font-family:monospace;
+    padding:8px 12px;border-radius:4px;pointer-events:none;line-height:1.5}
 </style>
 </head>
 <body>
@@ -77,6 +81,8 @@
   </div>
 </div>
 
+<div class="debug-panel" id="debug"></div>
+
 <audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
 
 <script type="module">
@@ -84,6 +90,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+function dbg(msg){ console.log('[掇山]',msg); }
 
 const titleBar=document.getElementById('titleBar');
 const titleMain=document.getElementById('titleMain');
@@ -96,13 +104,17 @@ const barFill=document.getElementById('barFill');
 const enterMask=document.getElementById('enterMask');
 const bgm=document.getElementById('bgm');
 const muteBtn=document.getElementById('muteBtn');
+const debugEl=document.getElementById('debug');
 
 let groups=[];
 let groupData=[];
-let currentStep=0;
+let nextRiseIndex=0;
+let risenIndex=-1;
 let isAnimating=false;
+let isAllDone=false;
 let modelCenter=new THREE.Vector3();
 let maxDim=0;
+let entered=false;
 
 const canvas=document.getElementById('canvas');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
@@ -120,7 +132,8 @@ const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100000);
 
 const pmrem=new THREE.PMREMGenerator(renderer);
-scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+try{ scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture; }
+catch(e){ console.warn('RoomEnvironment失败，跳过:', e.message); }
 
 const dirLight=new THREE.DirectionalLight(0xffffff,1.5);
 dirLight.castShadow=true;
@@ -150,47 +163,74 @@ loadingManager.onProgress=(url,loaded,total)=>{
 
 const loader=new GLTFLoader(loadingManager);
 
+function updateDebug(){
+  debugEl.innerHTML=[
+    'groups: '+groups.length,
+    'nextRise: '+nextRiseIndex,
+    'risenIdx: '+risenIndex,
+    'animating: '+isAnimating,
+    'allDone: '+isAllDone,
+    'entered: '+entered,
+  ].join('<br>');
+}
+
 async function init(){
+  dbg('开始加载模型');
   const gltf=await loader.loadAsync('models/Model.glb');
   const model=gltf.scene;
-  
-  console.log('检测Group...');
-  
-  // 查找顶层Group
-  model.children.forEach(child=>{
-    if(child.type==='Group' && child.children.length>0){
-      groups.push(child);
-      console.log('  找到Group:', child.name || '(无名称)');
-    }
+  dbg('模型加载完成，name='+model.name);
+
+  // 打印模型树结构
+  dbg('模型直接子节点('+model.children.length+'个):');
+  model.children.forEach((child,i)=>{
+    dbg('  ['+i+'] type='+child.type+' name='+(child.name||'(无)')+' children='+child.children.length);
   });
+
+  // 查找顶层Group
+  groups=[];
+  let rootToUse=model;
   
-  // 如果不够3个，遍历查找
+  // 先收集模型直接子节点中可作为Group的候选
+  let candidates=model.children.filter(child=>child.isObject3D && child.children && child.children.length>0);
+  dbg('直接子节点候选数: '+candidates.length+' 个');
+  candidates.forEach((c,i)=>dbg('  ['+i+'] name='+c.name+' type='+c.type+' kids='+c.children.length));
+  
+  // 如果只有一个候选且内部还有子节点，说明它是包装根节点（如GLTF根节点Model），需要展开
+  if(candidates.length===1 && candidates[0].children.length>0){
+    const inner=candidates[0].children.filter(c=>c.isObject3D && c.children && c.children.length>0);
+    if(inner.length>=2){
+      dbg('检测到包装根节点: '+candidates[0].name+'，展开子级');
+      rootToUse=candidates[0];
+      candidates=inner;
+    }
+  }
+  
+  groups=candidates;
+  dbg('最终识别到 '+groups.length+' 个Group');
+  
+  // 如果还不够3个，在更深层遍历（最后兜底）
   if(groups.length<3){
+    dbg('警告: Group少于3个，深层遍历...');
     groups=[];
-    const allGroups=[];
     model.traverse(child=>{
-      if(child.type==='Group' && child.children.length>0){
-        allGroups.push(child);
+      if(child !== model && child.isObject3D && child.children && child.children.length>0 && child.parent === rootToUse){
+        groups.push(child);
       }
     });
-    allGroups.forEach(g=>{
-      if(g.parent===model || g.parent===null){
-        groups.push(g);
-      }
-    });
-    console.log('  遍历找到', groups.length, '个顶层Group');
+    dbg('深层遍历结果: '+groups.length+' 个Group');
   }
-  
-  console.log('共找到', groups.length, '个Group');
-  
-  if(groups.length<3){
-    console.warn('找到的Group少于3个，请检查模型结构');
-  }
-  
+
+  // 打印groups详情
+  groups.forEach((g,i)=>{
+    const b=new THREE.Box3().setFromObject(g);
+    const c=b.getCenter(new THREE.Vector3());
+    dbg('Group['+i+']: name='+(g.name||'?')+' pos='+g.position.toArray().map(v=>v.toFixed(1)).join(',')+' center='+c.toArray().map(v=>v.toFixed(1)).join(','));
+  });
+
   model.traverse(child=>{
     if(child.isMesh){ child.castShadow=true; child.receiveShadow=true; }
   });
-  
+
   scene.add(model);
 
   const box=new THREE.Box3().setFromObject(model);
@@ -199,6 +239,8 @@ async function init(){
   maxDim=Math.max(size.x,size.y,size.z);
   const fov=camera.fov*Math.PI/180;
   const dist=(maxDim/2)/Math.tan(fov/2)*1.4;
+
+  dbg('模型尺寸: '+size.toArray().map(v=>v.toFixed(1)).join(',')+' maxDim='+maxDim.toFixed(1));
 
   camera.position.set(center.x+dist*0.2,center.y+dist*0.15,center.z+dist);
   camera.lookAt(center);
@@ -224,59 +266,100 @@ async function init(){
   ground.receiveShadow=true;
   scene.add(ground);
 
-  // 底部补光
   const bottomLight=new THREE.DirectionalLight(0xffffff,0.35);
   bottomLight.position.set(center.x, center.y-size.y*0.5, center.z);
   bottomLight.target.position.copy(center);
   scene.add(bottomLight);
   scene.add(bottomLight.target);
-  
-  modelCenter=center.clone();
-  
+
+  modelCenter.copy(center);
+
   // 按Y坐标排序（从低到高）
-  const sortedGroups=groups.map((g,i)=>({group:g, index:i})).sort((a,b)=>{
-    const boxA=new THREE.Box3().setFromObject(a.group);
-    const boxB=new THREE.Box3().setFromObject(b.group);
-    return boxA.getCenter(new THREE.Vector3()).y - boxB.getCenter(new THREE.Vector3()).y;
+  const sorted=groups.map((g,i)=>({group:g, idx:i})).sort((a,b)=>{
+    const ca=new THREE.Box3().setFromObject(a.group).getCenter(new THREE.Vector3());
+    const cb=new THREE.Box3().setFromObject(b.group).getCenter(new THREE.Vector3());
+    return ca.y - cb.y;
   });
-  
-  groups=sortedGroups.map(item=>item.group);
-  
+  groups=sorted.map(s=>s.group);
+  dbg('排序后的Group顺序: '+groups.map(g=>g.name).join(', '));
+
+  // 为每个Group构建动画数据
+  groupData=[];
   groups.forEach((group,idx)=>{
-    const groupBox=new THREE.Box3().setFromObject(group);
-    const groupCenter=groupBox.getCenter(new THREE.Vector3());
-    
-    const dir=groupCenter.sub(modelCenter).normalize();
-    dir.y += 2.0;
+    const gBox=new THREE.Box3().setFromObject(group);
+    const gWorldCenter=gBox.getCenter(new THREE.Vector3());
+
+    // Group上升方向
+    const dir=gWorldCenter.clone().sub(modelCenter).normalize();
+    if(dir.length()<0.001) dir.set(0,1,0);
+    dir.y += 0.3;
     dir.normalize();
-    
-    const explodeDist=maxDim*(0.4 + idx*0.1);
-    
+
+    // 收集Group下每个直接子节点的爆炸数据
+    const meshChildren=[];
+    group.children.forEach((child,j)=>{
+      const cBox=new THREE.Box3().setFromObject(child);
+      const cCenter=cBox.getCenter(new THREE.Vector3());
+      let cDir=cCenter.clone().sub(gWorldCenter).normalize();
+      if(cDir.length()<0.001) cDir.set(j===0?0.7:-0.7, 0.5, 0.3).normalize();
+      cDir.y += 0.2; cDir.normalize();
+      meshChildren.push({
+        object:child,
+        origPos:child.position.clone(),
+        explodeDir:cDir,
+        explodeDist:maxDim*0.15
+      });
+      dbg('  Group'+idx+' MeshChild['+j+']: '+child.name+' orig='+child.position.toArray().map(v=>v.toFixed(1)).join(',')+' dir='+cDir.toArray().map(v=>v.toFixed(2)));
+
+      // 递归：如果child下面还有子Mesh，也收集
+      child.traverse(grand=>{
+        if(grand.isMesh){
+          const gb=new THREE.Box3().setFromObject(grand);
+          const gc=gb.getCenter(new THREE.Vector3());
+          let gd=gc.clone().sub(gWorldCenter).normalize();
+          if(gd.length()<0.001) gd.set((j*2+1)*0.5-0.5, 0.6, 0).normalize();
+          meshChildren.push({
+            object:grand,
+            origPos:grand.position.clone(),
+            explodeDir:gd,
+            explodeDist:maxDim*0.2
+          });
+        }
+      });
+    });
+
     groupData.push({
       origPos:group.position.clone(),
       origScale:group.scale.clone(),
-      explodeDir:dir,
-      explodeDist:explodeDist
+      origRot:new THREE.Euler(group.rotation.x,group.rotation.y,group.rotation.z),
+      explodeDir:dir.clone(),
+      explodeDist:maxDim*(0.45 + idx*0.15),
+      meshChildren:meshChildren
     });
-    
-    console.log('  Group', idx+1, '爆炸距离:', explodeDist.toFixed(2));
+
+    dbg('GroupData['+idx+']: name='+group.name+' meshes='+meshChildren.length+' dir='+dir.toArray().map(v=>v.toFixed(2)));
   });
-  
-  console.log('准备完成');
-  
+
+  // 进度点
   for(let i=0;i<3;i++){
     const d=document.createElement('div');
-    d.className='dot'+(i===0?' active':'');
+    d.className='dot';
     progress.appendChild(d);
   }
-  
+
   updateUI();
+  updateDebug();
+  dbg('初始化完成, ready');
 
   loading.classList.add('hide');
   enterMask.style.display='flex';
   animate();
 }
-init().catch(err=>{loadTxt.textContent='加载失败：'+err.message; console.error(err);});
+init().catch(err=>{
+  dbg('初始化失败: '+err.message);
+  loadTxt.textContent='加载失败：'+(err.message||String(err));
+  loadTxt.style.cssText='font-size:12px; white-space:pre-wrap; max-width:90vw; word-break:break-all';
+});
 
 function animate(){
   requestAnimationFrame(animate);
@@ -284,12 +367,15 @@ function animate(){
   renderer.render(scene,camera);
 }
 
-let entered=false;
-enterMask.addEventListener('click',()=>{
+// 点击进入遮罩
+enterMask.addEventListener('click',e=>{
+  dbg('进入遮罩点击');
+  e.stopPropagation();
   enterMask.classList.add('hide');
   entered=true;
   bgm.volume=0.2;
   bgm.play().catch(()=>{});
+  updateDebug();
 });
 
 muteBtn.addEventListener('click',e=>{
@@ -298,123 +384,215 @@ muteBtn.addEventListener('click',e=>{
   else{ bgm.pause(); muteBtn.innerHTML='&#128263;'; }
 });
 
-let pTime=0,pMoved=false;
-canvas.addEventListener('pointerdown',e=>{pTime=Date.now();pMoved=false;});
-canvas.addEventListener('pointermove',()=>{pMoved=true;});
-canvas.addEventListener('pointerup',e=>{
-  if(!entered || isAnimating) return;
-  if(Date.now()-pTime<300&&!pMoved) handleClick();
+// 简化点击处理：直接监听canvas的click
+canvas.addEventListener('click',e=>{
+  dbg('canvas click: entered='+entered+' animating='+isAnimating+' allDone='+isAllDone);
+  updateDebug();
+
+  if(!entered){
+    dbg('  → 跳过: 未进入');
+    return;
+  }
+  if(isAnimating){
+    dbg('  → 跳过: 动画中');
+    return;
+  }
+  if(isAllDone){
+    dbg('  → 全部完成，重置重来');
+    resetAll();
+    return;
+  }
+
+  handleClick();
 });
 
 function handleClick(){
-  if(currentStep===0){
-    riseGroup(0);
-  }else if(currentStep>0 && currentStep<=3){
-    fallGroup(currentStep-1);
+  dbg('handleClick: risenIndex='+risenIndex+' nextRiseIndex='+nextRiseIndex);
+
+  if(risenIndex === -1){
+    // 当前没有升起的组 → 升起下一组
+    if(nextRiseIndex >= groups.length){
+      dbg('  → 无更多组');
+      return;
+    }
+    dbg('  → 升起 Group['+nextRiseIndex+']: '+groups[nextRiseIndex].name);
+    riseGroup(nextRiseIndex);
+  } else {
+    // 当前有升起的组 → 收回
+    dbg('  → 收回 Group['+risenIndex+']: '+groups[risenIndex].name);
+    fallGroup(risenIndex);
   }
 }
 
 function riseGroup(groupIndex){
+  if(groupIndex >= groups.length){
+    dbg('ERROR: riseGroup索引越界 '+groupIndex+'/'+groups.length);
+    return;
+  }
+  dbg('riseGroup('+groupIndex+') 开始 → 二阶段: 上升 → 炸开');
   isAnimating=true;
-  currentStep=groupIndex+1;
+  risenIndex=groupIndex;
+  updateDebug();
+
   const wasRotating=controls.autoRotate;
   controls.autoRotate=false;
-  
+
   titleBar.classList.add('hide');
-  tip.textContent='第'+(groupIndex+1)+'组升起中...';
-  
+
   const group=groups[groupIndex];
   const data=groupData[groupIndex];
-  
-  const duration=1000;
+
+  const phase1Duration=600;  // Group上升
+  const phase2Duration=500;  // Mesh炸开
+  const totalDuration=phase1Duration+phase2Duration;
   const startTime=performance.now();
-  
+
   function tick(){
     const elapsed=performance.now()-startTime;
-    const t=Math.min(elapsed/duration,1);
-    const eased=1-Math.pow(1-t,3);
-    
-    const targetPos=data.origPos.clone()
-      .add(data.explodeDir.clone().multiplyScalar(data.explodeDist*eased));
-    
-    group.position.copy(targetPos);
-    
-    const s=1+0.08*eased;
-    group.scale.setScalar(s);
-    
+    const t=Math.min(elapsed/totalDuration,1);
+
+    if(elapsed <= phase1Duration){
+      // 阶段1：Group上升
+      const p1=elapsed/phase1Duration;
+      const eased=1-Math.pow(1-p1,3);
+      const offset=data.explodeDir.clone().multiplyScalar(data.explodeDist*eased);
+      group.position.copy(data.origPos).add(offset);
+      group.scale.setScalar(1+0.05*eased);
+      tip.textContent='第'+(groupIndex+1)+'组升起中...';
+    } else {
+      // 阶段2：子Mesh炸开
+      const p2=(elapsed-phase1Duration)/phase2Duration;
+      const eased=1-Math.pow(1-p2,3);
+      data.meshChildren.forEach(mc=>{
+        const off=mc.explodeDir.clone().multiplyScalar(mc.explodeDist*eased);
+        mc.object.position.copy(mc.origPos).add(off);
+      });
+      tip.textContent='第'+(groupIndex+1)+'组炸开中...';
+    }
+
     if(t<1){
       requestAnimationFrame(tick);
     }else{
+      dbg('riseGroup('+groupIndex+') 完成');
       isAnimating=false;
       updateUI();
+      updateDebug();
       controls.autoRotate=wasRotating;
       titleBar.classList.remove('hide');
-      
-      if(groupIndex<2){
-        tip.textContent='点击屏幕：收回第'+(groupIndex+1)+'组';
-      }else{
-        tip.textContent='点击屏幕：收回第3组（最后一组）';
-      }
+      tip.textContent='点击屏幕：收回第'+(groupIndex+1)+'组';
     }
   }
   tick();
 }
 
 function fallGroup(groupIndex){
+  if(groupIndex >= groups.length){
+    dbg('ERROR: fallGroup索引越界 '+groupIndex+'/'+groups.length);
+    return;
+  }
+  dbg('fallGroup('+groupIndex+') 开始 → 二阶段: 收拢 → 回落');
   isAnimating=true;
+  updateDebug();
+
   const wasRotating=controls.autoRotate;
   controls.autoRotate=false;
-  
+
   titleBar.classList.add('hide');
-  tip.textContent='第'+(groupIndex+1)+'组收回中...';
-  
+
   const group=groups[groupIndex];
   const data=groupData[groupIndex];
-  
-  const duration=800;
+
+  // 先记录所有mesh子节点当前的位置
+  const meshStartPositions=data.meshChildren.map(mc=>({object:mc.object, pos:mc.object.position.clone()}));
+
+  const phase1Duration=450;  // Mesh收拢
+  const phase2Duration=550;  // Group回落
+  const totalDuration=phase1Duration+phase2Duration;
   const startTime=performance.now();
-  const startPos=group.position.clone();
-  const startScale=new THREE.Vector3(group.scale.x,group.scale.y,group.scale.z);
-  
+  const startGPos=group.position.clone();
+  const startGScale=new THREE.Vector3(group.scale.x,group.scale.y,group.scale.z);
+
   function tick(){
     const elapsed=performance.now()-startTime;
-    const t=Math.min(elapsed/duration,1);
-    const eased=t*t*t;
-    
-    group.position.lerpVectors(startPos, data.origPos, eased);
-    
-    const currentScale=new THREE.Vector3(group.scale.x,group.scale.y,group.scale.z);
-    group.scale.lerpVectors(currentScale, data.origScale, eased);
-    
+    const t=Math.min(elapsed/totalDuration,1);
+
+    if(elapsed <= phase1Duration){
+      // 阶段1：子Mesh收拢归位
+      const p1=elapsed/phase1Duration;
+      const eased=p1*p1*p1;
+      data.meshChildren.forEach((mc,i)=>{
+        mc.object.position.lerpVectors(meshStartPositions[i].pos, mc.origPos, eased);
+      });
+      tip.textContent='第'+(groupIndex+1)+'组收拢中...';
+    } else {
+      // 阶段2：Group回落
+      const p2=(elapsed-phase1Duration)/phase2Duration;
+      const eased=p2*p2*p2;
+      group.position.lerpVectors(startGPos, data.origPos, eased);
+      group.scale.lerpVectors(startGScale, data.origScale, eased);
+      tip.textContent='第'+(groupIndex+1)+'组回落中...';
+    }
+
     if(t<1){
       requestAnimationFrame(tick);
     }else{
+      dbg('fallGroup('+groupIndex+') 完成');
+      // 精确归位
       group.position.copy(data.origPos);
       group.scale.copy(data.origScale);
-      
+      group.quaternion.setFromEuler(data.origRot);
+      data.meshChildren.forEach(mc=>{mc.object.position.copy(mc.origPos);});
+
+      risenIndex=-1;
+      nextRiseIndex=groupIndex+1;
+
       isAnimating=false;
-      currentStep=groupIndex;
       updateUI();
+      updateDebug();
       controls.autoRotate=wasRotating;
       titleBar.classList.remove('hide');
-      
-      if(groupIndex===0){
-        tip.textContent='点击屏幕：升起第1组';
+
+      if(nextRiseIndex>=3){
+        tip.textContent='全部完成！点击屏幕重新开始';
+        isAllDone=true;
+        [...progress.children].forEach(d=>d.className='dot done');
       }else{
-        tip.textContent='点击屏幕：升起第'+(groupIndex+1)+'组';
+        tip.textContent='点击屏幕：升起第'+(nextRiseIndex+1)+'组';
       }
     }
   }
   tick();
 }
 
+function resetAll(){
+  dbg('resetAll 重置所有状态');
+  isAllDone=false;
+  nextRiseIndex=0;
+  risenIndex=-1;
+  isAnimating=false;
+
+  // 恢复所有组的位置、缩放、旋转 — 以及子Mesh位置
+  groups.forEach((group,i)=>{
+    const data=groupData[i];
+    group.position.copy(data.origPos);
+    group.scale.copy(data.origScale);
+    group.quaternion.setFromEuler(data.origRot);
+    data.meshChildren.forEach(mc=>mc.object.position.copy(mc.origPos));
+  });
+
+  updateUI();
+  updateDebug();
+  tip.textContent='点击屏幕：升起第1组';
+}
+
 function updateUI(){
-  titleMain.textContent='掇山如画 · 第'+currentStep+'步';
-  titleSub.textContent='第 '+Math.min(currentStep,3)+' / 3 步';
-  
+  const stepNum=Math.min((risenIndex>=0?risenIndex:nextRiseIndex)+1, 3);
+  titleSub.textContent='第 '+stepNum+' / 3 步';
+
   [...progress.children].forEach((d,i)=>{
-    if(i<currentStep) d.className='dot done';
-    else if(i===currentStep) d.className='dot active';
+    if(isAllDone){ d.className='dot done'; return; }
+    if(i < nextRiseIndex) d.className='dot done';
+    else if(i === nextRiseIndex) d.className='dot active';
     else d.className='dot';
   });
 }
