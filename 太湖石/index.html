@@ -54,7 +54,7 @@
 <canvas id="canvas"></canvas>
 
 <div class="title-bar" id="titleBar">
-  <div class="title-main" id="titleMain">太湖石 · 基座</div>
+  <div class="title-main" id="titleMain">太湖石</div>
   <div class="title-sub" id="titleSub">第 1 / ? 步</div>
 </div>
 <div class="controls">
@@ -435,7 +435,7 @@ function collapseAll(){
 }
 
 function updateUI(){
-  titleMain.textContent='太湖石 · 第'+(currentStep+1)+'步';
+  titleMain.textContent='太湖石';
   titleSub.textContent='第 '+Math.min(currentStep+1,stepOrder.length)+' / '+stepOrder.length+' 步';
   
   [...progress.children].forEach((d,i)=>{
