@@ -127,7 +127,8 @@ controls.enableDamping=true;
 controls.dampingFactor=0.08;
 controls.autoRotate=true;
 controls.autoRotateSpeed=0.5;
-controls.enablePan=false;
+controls.enablePan=true;
+controls.panSpeed=0.8;
 
 // ── 加载管理器（显示进度）──
 const loadingManager=new THREE.LoadingManager();
@@ -170,7 +171,7 @@ async function init(){
   camera.near=maxDim*0.01; camera.far=maxDim*100;
   camera.updateProjectionMatrix();
   controls.target.copy(center);
-  controls.minDistance=dist*0.3; controls.maxDistance=dist*3;
+  controls.minDistance=dist*0.12; controls.maxDistance=dist*6;
   controls.update();
 
   dirLight.position.set(center.x+size.x*0.8,center.y+size.y*1.5,center.z+size.z*0.6);

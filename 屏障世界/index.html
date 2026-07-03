@@ -162,7 +162,8 @@ controls.enableDamping=true;
 controls.dampingFactor=0.08;
 controls.autoRotate=true;
 controls.autoRotateSpeed=0.5;
-controls.enablePan=false;
+controls.enablePan=true;
+controls.panSpeed=0.8;
 
 // ── 加载管理器（显示进度）──
 const loadingManager=new THREE.LoadingManager();
@@ -257,8 +258,8 @@ async function init(){
   camera.far=maxDim*100;
   camera.updateProjectionMatrix();
   controls.target.copy(center);
-  controls.minDistance=dist*0.3;
-  controls.maxDistance=dist*3;
+  controls.minDistance=dist*0.12;
+  controls.maxDistance=dist*6;
   controls.update();
 
   // 方向光位置
