@@ -4,57 +4,128 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>《设计专题（1）概念与空间》课程空间模型展示合集</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:#1a1a2e;color:#fff;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
-  h1{font-size:28px;font-weight:600;margin-bottom:8px;letter-spacing:2px;text-align:center;line-height:1.5}
-  .sub{font-size:15px;opacity:.6;margin-bottom:50px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;max-width:900px;width:100%}
-  .card{display:block;text-decoration:none;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:36px 28px;transition:all .3s ease;backdrop-filter:blur(6px)}
+  body{min-height:100vh;background:#1a1a2e;color:#fff;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px}
+  h1{font-size:28px;font-weight:600;margin-bottom:6px;letter-spacing:2px;text-align:center;line-height:1.5}
+  .sub{font-size:14px;opacity:.6;margin-bottom:8px}
+  .scan-tip{font-size:13px;opacity:.5;margin-bottom:40px;text-align:center;line-height:1.6}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:1000px;width:100%}
+  .card{display:flex;flex-direction:column;align-items:center;text-decoration:none;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:30px 22px 24px;transition:all .3s ease;backdrop-filter:blur(6px);cursor:pointer}
   .card:hover{background:rgba(255,255,255,.12);border-color:rgba(255,210,74,.4);transform:translateY(-4px)}
-  .card .icon{font-size:40px;margin-bottom:18px}
-  .card .name{font-size:22px;font-weight:600;margin-bottom:8px;letter-spacing:1px}
-  .card .desc{font-size:14px;opacity:.65;line-height:1.6}
-  .card .arrow{margin-top:18px;font-size:13px;color:#ffd24a;opacity:0;transition:opacity .3s}
+  .card .icon{font-size:40px;margin-bottom:14px}
+  .card .name{font-size:20px;font-weight:600;margin-bottom:6px;letter-spacing:1px}
+  .card .desc{font-size:13px;opacity:.6;text-align:center;line-height:1.5;margin-bottom:16px}
+  .card .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .card .qr-box{width:132px;height:132px;border-radius:10px;background:#fff;padding:6px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .card .qr-box img,.card .qr-box canvas{width:120px;height:120px;display:block}
+  .card .qr-label{font-size:12px;opacity:.5;letter-spacing:1px}
+  .card .arrow{margin-top:14px;font-size:13px;color:#ffd24a;opacity:.6;transition:opacity .3s}
   .card:hover .arrow{opacity:1}
-  .footer{margin-top:50px;font-size:13px;opacity:.4}
+  .footer{margin-top:40px;font-size:13px;opacity:.35}
 </style>
 </head>
 <body>
   <h1>《设计专题（1）概念与空间》<br>课程空间模型展示合集</h1>
-  <div class="sub">点击下方卡片进入对应模型演示</div>
-  <div class="grid">
-    <a class="card" href="屏障世界/index.html">
-      <div class="icon">🏯</div>
-      <div class="name">屏障世界</div>
-      <div class="desc">12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫</div>
-      <div class="arrow">进入观看 →</div>
-    </a>
-    <a class="card" href="卧林藏空/index.html">
-      <div class="icon">🏚️</div>
-      <div class="name">卧林藏空</div>
-      <div class="desc">空间搭建交互动画演示</div>
-      <div class="arrow">进入观看 →</div>
-    </a>
-    <a class="card" href="斗拱/index.html">
-      <div class="icon">🏛️</div>
-      <div class="name">斗拱</div>
-      <div class="desc">6 步空间搭建<br>斗 → 拱 → 翘 → 昂 → 升 → 枋</div>
-      <div class="arrow">进入观看 →</div>
-    </a>
-    <a class="card" href="太湖石/index.html">
-      <div class="icon">🏺</div>
-      <div class="name">太湖石</div>
-      <div class="desc">空间搭建交互动画演示</div>
-      <div class="arrow">进入观看 →</div>
-    </a>
-    <a class="card" href="掇山如画/index.html">
-      <div class="icon">🏔️</div>
-      <div class="name">掇山如画</div>
-      <div class="desc">3 组建升交互演示</div>
-      <div class="arrow">进入观看 →</div>
-    </a>
+  <p class="sub">点击卡片进入对应模型演示</p>
+  <p class="scan-tip"> 手机扫码即可观看，无需连接同一 WiFi</p>
+  <div class="grid" id="grid">
+    <!-- JS 动态生成 -->
   </div>
   <div class="footer">© 2026 · 课程空间模型展示合集</div>
+
+<script>
+const BASE_URL = 'https://harrustashicka-oss.github.io/my-3d';
+const models = [
+  { name: '屏障世界', path: '屏障世界', icon: '🏯', desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
+  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', desc: '空间搭建交互动画演示' },
+  { name: '斗拱',      path: '斗拱',     icon: '🏛️', desc: '6 步空间搭建<br>斗 → 拱 → 翘 → 昂 → 升 → 枋' },
+  { name: '太湖石',    path: '太湖石',   icon: '🏺', desc: '空间搭建交互动画演示' },
+  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', desc: '3 组建升交互演示' },
+];
+
+const grid = document.getElementById('grid');
+
+function createCard(m) {
+  // 对中文路径做 URL 编码，避免二维码扫码出现乱码
+  const encodedPath = encodeURIComponent(m.path);
+  const url = BASE_URL + '/' + encodedPath + '/';
+  
+  // 创建卡片
+  const card = document.createElement('a');
+  card.className = 'card';
+  card.href = m.path + '/index.html';
+  
+  const icon = document.createElement('div');
+  icon.className = 'icon';
+  icon.textContent = m.icon;
+  card.appendChild(icon);
+  
+  const name = document.createElement('div');
+  name.className = 'name';
+  name.textContent = m.name;
+  card.appendChild(name);
+  
+  const desc = document.createElement('div');
+  desc.className = 'desc';
+  desc.innerHTML = m.desc;
+  card.appendChild(desc);
+  
+  // 二维码区域
+  const qrWrap = document.createElement('div');
+  qrWrap.className = 'qr-wrap';
+  
+  const qrBox = document.createElement('div');
+  qrBox.className = 'qr-box';
+  qrBox.id = 'qr-' + m.path;
+  qrWrap.appendChild(qrBox);
+  
+  // 用 QRCode 生成二维码（qrcodejs2 库需要一个 div 容器）
+  try {
+    if (typeof QRCode === 'function') {
+      new QRCode(qrBox, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: '#1a1a2e',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      throw new Error('QRCode 库未加载');
+    }
+  } catch(err) {
+    console.error('二维码生成失败:', err);
+    qrBox.textContent = '二维码加载失败';
+    qrBox.style.fontSize = '12px';
+    qrBox.style.color = '#333';
+  }
+  
+  const qrLabel = document.createElement('div');
+  qrLabel.className = 'qr-label';
+  qrLabel.textContent = '手机扫码观看';
+  qrWrap.appendChild(qrLabel);
+  
+  card.appendChild(qrWrap);
+  
+  const arrow = document.createElement('div');
+  arrow.className = 'arrow';
+  arrow.textContent = '进入观看 →';
+  card.appendChild(arrow);
+  
+  grid.appendChild(card);
+}
+
+// 确保二维码库加载完成后再生成
+if (typeof QRCode === 'function') {
+  models.forEach(createCard);
+} else {
+  // 库还没加载完，等 DOM 和脚本加载
+  window.addEventListener('load', () => {
+    models.forEach(createCard);
+  });
+}
+</script>
 </body>
 </html>
