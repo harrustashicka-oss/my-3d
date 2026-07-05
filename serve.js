@@ -65,4 +65,15 @@ const server = http.createServer((req, res) => {
 });
 
 const PORT = 8889;
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  const os = require('os');
+  const nets = os.networkInterfaces();
+  console.log(`Server running on http://localhost:${PORT}`);
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        console.log(`  → 局域网: http://${net.address}:${PORT}`);
+      }
+    }
+  }
+});
