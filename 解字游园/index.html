@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>解字游园</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#2a2a2a;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  #canvas{display:block;width:100%;height:100%;touch-action:none}
+  .title-bar{position:absolute;top:0;left:0;right:0;padding:18px 22px 30px;
+    background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent);color:#fff;pointer-events:none;z-index:5;
+    transition:opacity .3s ease}
+  .title-bar.hide{opacity:0}
+  .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
+  .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
+  .tip{font-size:14px;margin-bottom:12px;opacity:.95}
+  .progress{display:flex;gap:6px}
+  .dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25);transition:background .4s}
+  .dot.active{background:#ffd24a}
+  .dot.done{background:rgba(255,210,74,.55)}
+  .controls{position:absolute;top:16px;right:14px;z-index:6;display:flex;gap:10px}
+  .btn{width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,.18);
+    color:#fff;backdrop-filter:blur(6px);font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .btn:active{background:rgba(255,255,255,.32)}
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#fff;z-index:10;text-align:center;transition:opacity .4s}
+  .loading.hide{opacity:0;pointer-events:none}
+  .loading .bar{width:200px;height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin-top:12px;overflow:hidden}
+  .loading .bar-fill{height:100%;width:0%;background:#ffd24a;border-radius:2px;transition:width .3s}
+  .enter-mask{position:absolute;inset:0;z-index:20;background:#2a2a2a;
+    display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;
+    transition:opacity .6s}
+  .enter-mask.hide{opacity:0;pointer-events:none}
+  .enter-mask .play{width:80px;height:80px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;
+    justify-content:center;font-size:30px;padding-left:6px;margin:0 auto}
+  .enter-mask .label{margin-top:18px;font-size:15px;opacity:.8;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="title-bar" id="titleBar">
+  <div class="title-main" id="titleMain">解字游园</div>
+  <div class="title-sub" id="titleSub">第 1 / 8 步</div>
+</div>
+<div class="controls">
+  <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
+  <button class="btn" id="restartBtn" title="重新播放">▶</button>
+</div>
+<div class="bottom-bar">
+  <div class="tip" id="tip">点击屏幕开始演示</div>
+  <div class="progress" id="progress"></div>
+</div>
+<div class="loading" id="loading">
+  <div id="loadTxt">加载中...</div>
+  <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+</div>
+<div class="enter-mask" id="enterMask" style="display:none">
+  <div>
+    <div class="play">▶</div>
+    <div class="label">点击进入</div>
+  </div>
+</div>
+
+<audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ── 动画步骤定义（8步） ── */
+const steps = [
+  { group: 'Group1', action: 'rise',  label: 'Group1 上升' },
+  { group: 'Group1', action: 'return', label: 'Group1 返回' },
+  { group: 'Group2', action: 'rise',  label: 'Group2 上升' },
+  { group: 'Group2', action: 'return', label: 'Group2 返回' },
+  { group: 'Group3', action: 'rise',  label: 'Group3 上升', shared: true },
+  { group: 'Group3', action: 'return', label: 'Group3 返回', shared: true },
+  { group: 'Group4', action: 'rise',  label: 'Group4 上升', shared: true },
+  { group: 'Group4', action: 'return', label: 'Group4 返回', shared: true },
+];
+const titlePrefix = '解字游园';
+
+/* ── 各组上升时的标题后缀 ── */
+const riseTitleSuffix = {
+  'Group1': '定',
+  'Group2': '破',
+  'Group3': '磨',
+  'Group4': '风'
+};
+
+const titleBar = document.getElementById('titleBar'),
+      titleMain = document.getElementById('titleMain'),
+      titleSub = document.getElementById('titleSub'),
+      tip = document.getElementById('tip'),
+      progress = document.getElementById('progress'),
+      loading = document.getElementById('loading'),
+      loadTxt = document.getElementById('loadTxt'),
+      barFill = document.getElementById('barFill'),
+      enterMask = document.getElementById('enterMask'),
+      bgm = document.getElementById('bgm'),
+      muteBtn = document.getElementById('muteBtn'),
+      restartBtn = document.getElementById('restartBtn');
+
+steps.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  progress.appendChild(d);
+});
+
+/* ── Three.js 基础场景 ── */
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x2a2a2a);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.radius = 8;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100000);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.bias = -0.0005;
+dirLight.shadow.radius = 55;
+dirLight.shadow.blurSamples = 80;
+scene.add(dirLight);
+scene.add(dirLight.target);
+
+const ambLight = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambLight);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.6);
+hemiLight.position.set(0, 1, 0);
+scene.add(hemiLight);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.enablePan = true;
+controls.panSpeed = 0.8;
+
+const loadingManager = new THREE.LoadingManager();
+loadingManager.onProgress = (url, loaded, total) => {
+  const pct = Math.round(loaded / total * 100);
+  barFill.style.width = pct + '%';
+  loadTxt.textContent = '加载中 ' + pct + '%';
+};
+
+const loader = new GLTFLoader(loadingManager);
+
+/* ── 状态变量 ─ */
+let currentStep = -1;  // -1 = 初始状态（全部可见），0-7 = 动画步骤
+let busy = false;
+let maxDim = 0;
+let entered = false;
+
+/* ── 动画对象引用 ─ */
+let groupNodes = {};   // { Group1, Group2, Group3, Group4, gongxiang }
+let origPositions = {}; // 各节点原始位置
+let gongxiangFollows = null; // 当前 gongxiang 跟随的组名（'Group3' 或 'Group4' 或 null）
+
+/* ══════════════════════════════════════════
+   模型初始化
+   ══════════════════════════════════════════ */
+async function init() {
+  const gltf = await loader.loadAsync('models/解字游园.gltf');
+  const model = gltf.scene;
+
+  /* ── 收集所有节点 ── */
+  const allNodes = [];
+  model.traverse(child => { allNodes.push(child); });
+
+  /* ── 查找关键节点 ── */
+  const groupNames = ['Group1', 'Group2', 'Group3', 'Group4', 'gongxiang'];
+  for (const name of groupNames) {
+    const node = allNodes.find(n => n.name === name && !n.isMesh);
+    if (node) {
+      groupNodes[name] = node;
+    } else {
+      console.error('未找到节点: ' + name);
+    }
+  }
+
+  console.log('找到的节点:', Object.keys(groupNodes));
+
+  /* ── 记录原始位置 ── */
+  for (const [name, node] of Object.entries(groupNodes)) {
+    origPositions[name] = node.position.clone();
+  }
+
+  /* ── 为所有网格体设置阴影和边缘线 ── */
+  model.traverse(child => {
+    if (!child.isMesh) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+
+    // 重新计算法线以获得均匀着色
+    child.geometry.computeVertexNormals();
+
+    // 克隆材质并降低环境贴图强度
+    if (Array.isArray(child.material)) {
+      child.material = child.material.map(m => {
+        const cloned = m.clone();
+        cloned.envMapIntensity = 0.2;
+        return cloned;
+      });
+    } else {
+      child.material = child.material.clone();
+      child.material.envMapIntensity = 0.2;
+    }
+
+    // 添加边缘线
+    const mat = child.material;
+    if (mat && !Array.isArray(mat) && mat.color) {
+      const col = mat.color;
+      const isLight = col.r > 0.7 && col.g > 0.7 && col.b > 0.7;
+      if (isLight) {
+        const edges = new THREE.EdgesGeometry(child.geometry, 20);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.7 });
+        const edgeLines = new THREE.LineSegments(edges, lineMat);
+        edgeLines.raycast = () => {};
+        child.add(edgeLines);
+      }
+    }
+  });
+
+  /* ── 场景布局 ─ */
+  scene.add(model);
+
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  maxDim = Math.max(size.x, size.y, size.z);
+  const fov = camera.fov * Math.PI / 180;
+  const dist = (maxDim / 2) / Math.tan(fov / 2) * 1.4;
+
+  camera.position.set(center.x + dist * 0.2, center.y + dist * 0.15, center.z + dist);
+  camera.lookAt(center);
+  camera.near = maxDim * 0.01;
+  camera.far = maxDim * 100;
+  camera.updateProjectionMatrix();
+  controls.target.copy(center);
+  controls.minDistance = dist * 0.12;
+  controls.maxDistance = dist * 6;
+  controls.update();
+
+  dirLight.position.set(center.x + size.x * 0.8, center.y + size.y * 1.5, center.z + size.z * 0.6);
+  dirLight.target.position.copy(center);
+  dirLight.shadow.camera.left = -maxDim;
+  dirLight.shadow.camera.right = maxDim;
+  dirLight.shadow.camera.top = maxDim;
+  dirLight.shadow.camera.bottom = -maxDim;
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = maxDim * 5;
+  dirLight.shadow.camera.updateProjectionMatrix();
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(maxDim * 10, maxDim * 10),
+    new THREE.ShadowMaterial({ opacity: 0.22 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = box.min.y;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const bottomLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  bottomLight.position.set(center.x, box.min.y - size.y * 0.3, center.z);
+  bottomLight.target.position.copy(center);
+  scene.add(bottomLight);
+  scene.add(bottomLight.target);
+
+  // 补光：从多个方向均匀照射
+  const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.4);
+  fillLight1.position.set(center.x - size.x, center.y, center.z - size.z);
+  fillLight1.target.position.copy(center);
+  scene.add(fillLight1);
+  scene.add(fillLight1.target);
+
+  const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+  fillLight2.position.set(center.x + size.x * 0.5, center.y - size.y * 0.3, center.z - size.z * 0.8);
+  fillLight2.target.position.copy(center);
+  scene.add(fillLight2);
+  scene.add(fillLight2.target);
+
+  loading.classList.add('hide');
+  enterMask.style.display = 'flex';
+  updateUI();
+  animate();
+}
+
+/* ── 进入交互 ── */
+enterMask.addEventListener('click', () => {
+  enterMask.classList.add('hide');
+  entered = true;
+  bgm.volume = 0.2;
+  bgm.play().catch(() => {});
+});
+init().catch(err => { loadTxt.textContent = '加载失败：' + err.message; });
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* ══════════════════════════════════════════
+   上升动画
+   ══════════════════════════════════════════ */
+function animateRise(groupName, withShared) {
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  busy = true;
+
+  const node = groupNodes[groupName];
+  const origY = origPositions[groupName].y;
+  const riseDist = maxDim * 0.3;
+  const targetY = origY + riseDist;
+  const duration = 800;
+  const startTime = performance.now();
+
+  // gongxiang 跟随
+  let gongxiangOrigY = null;
+  if (withShared && groupNodes['gongxiang']) {
+    gongxiangFollows = groupName;
+    gongxiangOrigY = origPositions['gongxiang'].y;
+  }
+
+  function tick() {
+    const elapsed = performance.now() - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+
+    node.position.y = origY + (targetY - origY) * eased;
+
+    // gongxiang 同步移动
+    if (withShared && gongxiangOrigY !== null && groupNodes['gongxiang']) {
+      groupNodes['gongxiang'].position.y = gongxiangOrigY + (targetY - origY) * eased;
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      node.position.y = targetY;
+      if (withShared && groupNodes['gongxiang']) {
+        groupNodes['gongxiang'].position.y = gongxiangOrigY + (targetY - origY);
+      }
+      busy = false;
+      controls.autoRotate = wasRotating;
+      currentStep++;
+      updateUI();
+    }
+  }
+  tick();
+}
+
+/* ══════════════════════════════════════════
+   返回动画
+   ══════════════════════════════════════════ */
+function animateReturn(groupName, withShared) {
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  busy = true;
+
+  const node = groupNodes[groupName];
+  const curY = node.position.y;
+  const origY = origPositions[groupName].y;
+  const duration = 600;
+  const startTime = performance.now();
+
+  // gongxiang 跟随
+  let gongxiangCurY = null;
+  if (withShared && groupNodes['gongxiang']) {
+    gongxiangCurY = groupNodes['gongxiang'].position.y;
+  }
+
+  function tick() {
+    const elapsed = performance.now() - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const eased = t * t * (3 - 2 * t); // smoothstep
+
+    node.position.y = curY + (origY - curY) * eased;
+
+    // gongxiang 同步移动
+    if (withShared && gongxiangCurY !== null && groupNodes['gongxiang']) {
+      const gOrigY = origPositions['gongxiang'].y;
+      groupNodes['gongxiang'].position.y = gongxiangCurY + (gOrigY - gongxiangCurY) * eased;
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      node.position.y = origY;
+      if (withShared && groupNodes['gongxiang']) {
+        groupNodes['gongxiang'].position.y = origPositions['gongxiang'].y;
+        gongxiangFollows = null;
+      }
+      busy = false;
+      controls.autoRotate = wasRotating;
+      currentStep++;
+      updateUI();
+    }
+  }
+  tick();
+}
+
+/* ══════════════════════════════════════════
+   UI 更新
+   ══════════════════════════════════════════ */
+function updateUI() {
+  // 上升阶段显示带后缀的标题
+  if (currentStep >= 0 && currentStep < steps.length) {
+    const step = steps[currentStep];
+    if (step.action === 'rise' && riseTitleSuffix[step.group]) {
+      titleMain.textContent = titlePrefix + ' · ' + riseTitleSuffix[step.group];
+    } else {
+      titleMain.textContent = titlePrefix;
+    }
+  } else {
+    titleMain.textContent = titlePrefix;
+  }
+
+  if (currentStep < 0) {
+    titleSub.textContent = '准备就绪';
+    tip.textContent = '点击屏幕开始演示';
+  } else if (currentStep >= steps.length) {
+    titleSub.textContent = '演示完成';
+    tip.textContent = '演示完成！点击屏幕重新开始';
+  } else {
+    titleSub.textContent = '第 ' + (currentStep + 1) + ' / ' + steps.length + ' 步';
+    const step = steps[currentStep];
+    const actionText = step.action === 'rise' ? '上升中…' : '返回中…';
+    tip.textContent = step.label + (busy ? ' ' + actionText : '');
+  }
+
+  [...progress.children].forEach((d, i) => {
+    d.className = 'dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
+  });
+}
+
+/* ══════════════════════════════════════════
+   交互事件
+   ══════════════════════════════════════════ */
+let pTime = 0, pMoved = false;
+canvas.addEventListener('pointerdown', e => { pTime = Date.now(); pMoved = false; });
+canvas.addEventListener('pointermove', () => { pMoved = true; });
+canvas.addEventListener('pointerup', e => {
+  if (!entered) return;
+  if (Date.now() - pTime < 300 && !pMoved) {
+    if (busy) return;
+
+    if (currentStep < 0) {
+      // 初始状态：开始第一步
+      currentStep = 0;
+      updateUI();
+      const step = steps[0];
+      animateRise(step.group, step.shared);
+    } else if (currentStep >= steps.length) {
+      // 全部完成：重置
+      resetAll();
+    } else {
+      // 执行当前步骤
+      const step = steps[currentStep];
+      updateUI();
+      if (step.action === 'rise') {
+        animateRise(step.group, step.shared);
+      } else {
+        animateReturn(step.group, step.shared);
+      }
+    }
+  }
+});
+
+/* ── 重置所有状态 ── */
+function resetAll() {
+  currentStep = -1;
+  busy = false;
+  gongxiangFollows = null;
+  for (const [name, node] of Object.entries(groupNodes)) {
+    node.position.copy(origPositions[name]);
+  }
+  updateUI();
+}
+
+muteBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (bgm.paused) { bgm.play().catch(() => {}); muteBtn.textContent = '🔊'; }
+  else { bgm.pause(); muteBtn.textContent = ''; }
+});
+
+restartBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  resetAll();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
