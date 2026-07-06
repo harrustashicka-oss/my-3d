@@ -53,8 +53,8 @@
 <canvas id="canvas"></canvas>
 
 <div class="title-bar" id="titleBar">
-  <div class="title-main" id="titleMain">斗拱 · 斗</div>
-  <div class="title-sub" id="titleSub">第 1 / 6 步</div>
+  <div class="title-main" id="titleMain">斗拱 · G1</div>
+  <div class="title-sub" id="titleSub">第 1 / 8 步</div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
@@ -83,128 +83,149 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-const labels=['斗','拱','翘','昂','升','枋'];
-const titlePrefix='斗拱';
+/* ── 搭建步骤标签（8步） ── */
+const labels = ['G1','G2','G3','04','05','06.1','M5','M6'];
+const titlePrefix = '斗拱';
 
-const titleBar=document.getElementById('titleBar'),
-      titleMain=document.getElementById('titleMain'),
-      titleSub=document.getElementById('titleSub'),
-      tip=document.getElementById('tip'),
-      progress=document.getElementById('progress'),
-      loading=document.getElementById('loading'),
-      loadTxt=document.getElementById('loadTxt'),
-      barFill=document.getElementById('barFill'),
-      enterMask=document.getElementById('enterMask'),
-      bgm=document.getElementById('bgm'),
-      muteBtn=document.getElementById('muteBtn'),
-      restartBtn=document.getElementById('restartBtn');
+const titleBar = document.getElementById('titleBar'),
+      titleMain = document.getElementById('titleMain'),
+      titleSub = document.getElementById('titleSub'),
+      tip = document.getElementById('tip'),
+      progress = document.getElementById('progress'),
+      loading = document.getElementById('loading'),
+      loadTxt = document.getElementById('loadTxt'),
+      barFill = document.getElementById('barFill'),
+      enterMask = document.getElementById('enterMask'),
+      bgm = document.getElementById('bgm'),
+      muteBtn = document.getElementById('muteBtn'),
+      restartBtn = document.getElementById('restartBtn');
 
-labels.forEach((_,i)=>{
-  const d=document.createElement('div');
-  d.className='dot'+(i===0?' active':'');
+labels.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
   progress.appendChild(d);
 });
 
-const canvas=document.getElementById('canvas');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.setSize(window.innerWidth,window.innerHeight);
+/* ── Three.js 基础场景 ── */
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x2a2a2a);
-renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.shadowMap.radius=8;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=0.88;
-renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.radius = 8;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.88;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100000);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100000);
 
-const pmrem=new THREE.PMREMGenerator(renderer);
-scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const dirLight=new THREE.DirectionalLight(0xffffff,1.5);
-dirLight.castShadow=true;
-dirLight.shadow.mapSize.set(2048,2048);
-dirLight.shadow.bias=-0.0005;
-dirLight.shadow.radius=55;
-dirLight.shadow.blurSamples=80;
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.bias = -0.0005;
+dirLight.shadow.radius = 55;
+dirLight.shadow.blurSamples = 80;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const ambLight=new THREE.AmbientLight(0xffffff,0.35);
+const ambLight = new THREE.AmbientLight(0xffffff, 0.35);
 scene.add(ambLight);
 
-const controls=new OrbitControls(camera,canvas);
-controls.enableDamping=true;
-controls.dampingFactor=0.08;
-controls.autoRotate=true;
-controls.autoRotateSpeed=0.5;
-controls.enablePan=true;
-controls.panSpeed=0.8;
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.enablePan = true;
+controls.panSpeed = 0.8;
 
-const loadingManager=new THREE.LoadingManager();
-loadingManager.onProgress=(url,loaded,total)=>{
-  const pct=Math.round(loaded/total*100);
-  barFill.style.width=pct+'%';
-  loadTxt.textContent='加载中 '+pct+'%';
+const loadingManager = new THREE.LoadingManager();
+loadingManager.onProgress = (url, loaded, total) => {
+  const pct = Math.round(loaded / total * 100);
+  barFill.style.width = pct + '%';
+  loadTxt.textContent = '加载中 ' + pct + '%';
 };
 
-const loader=new GLTFLoader(loadingManager);
-const stepMeshes=labels.map(()=>[]);
+const loader = new GLTFLoader(loadingManager);
+const stepMeshes = labels.map(() => []);
 
-function setOpacity(mesh,val){
-  const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];
-  mats.forEach(m=>{ m.opacity=val; });
-}
-function showMesh(mesh){ mesh.visible=true; }
-function hideMesh(mesh){ mesh.visible=false; mesh.castShadow=false; }
-
-async function init(){
-  const gltf=await loader.loadAsync('models/dougong.glb');
-  const model=gltf.scene;
-
-  const parentNodes=[];
-  model.traverse(child=>{
-    if(child.children.length>0 && child.isMesh===false && child.type==='Group'){
-      parentNodes.push(child);
+/* ── 工具函数 ── */
+function setOpacity(mesh, val) {
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  mats.forEach(m => { if (m.opacity !== undefined) m.opacity = val; });
+  // 同步更新边缘线透明度
+  mesh.children.forEach(c => {
+    if (c.isLineSegments && c.material && c.material.opacity !== undefined) {
+      c.material.opacity = val;
     }
   });
+}
+function showMesh(mesh) { mesh.visible = true; }
+function hideMesh(mesh) { mesh.visible = false; mesh.castShadow = false; }
 
-  let groups=[];
-  if(parentNodes.length>=labels.length){
-    groups=parentNodes.slice(0,labels.length);
-  }else{
-    const allNodes=[];
-    model.traverse(child=>{ allNodes.push(child); });
-    for(let i=0;i<labels.length;i++){
-      const prefix=String(i+1).padStart(2,'0');
-      const found=allNodes.find(n=>n.name && n.name.startsWith(prefix) && n.children.length>0 && !n.isMesh);
-      if(found) groups.push(found);
+/* ── 状态变量 ── */
+let index = 0, busy = false;
+let yellowPhase = 'none';   // 'none' | 'flying-out' | 'out' | 'flying-back' | 'done'
+let currentYellowIndex = 0;
+let maxDim = 0;
+let yellowMeshes = [];      // 飞出构件列表 [{object, origPos, worldY}]
+let flyDirections = [];      // 每个飞出构件的方向 {dx, dy, dz}
+let entered = false;
+
+/* ══════════════════════════════════════════
+   模型初始化
+   ══════════════════════════════════════════ */
+async function init() {
+  const gltf = await loader.loadAsync('models/dougong.gltf');
+  const model = gltf.scene;
+
+  /* ── 按名称查找8个构件组 ── */
+  const allNodes = [];
+  model.traverse(child => { allNodes.push(child); });
+
+  const groups = [];
+  for (const name of labels) {
+    const found = allNodes.find(n => n.name === name && !n.isMesh);
+    if (found) {
+      groups.push(found);
+    } else {
+      // 回退：按前缀匹配
+      const prefix = name;
+      const fallback = allNodes.find(n => n.name && n.name.startsWith(prefix) && n.children.length > 0 && !n.isMesh);
+      if (fallback) groups.push(fallback);
     }
   }
 
-  groups.forEach((group,stepIndex)=>{
-    group.traverse(child=>{
-      if(child.isMesh){
-        child.castShadow=true;
-        child.receiveShadow=true;
-        if(Array.isArray(child.material)){
-          child.material=child.material.map(m=>m.clone());
-        }else{
-          child.material=child.material.clone();
+  console.log('找到构件组:', groups.map(g => g.name));
+
+  /* ── 初始化每个步骤的网格体 ── */
+  groups.forEach((group, stepIndex) => {
+    group.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map(m => m.clone());
+        } else {
+          child.material = child.material.clone();
         }
-        const mats=Array.isArray(child.material)?child.material:[child.material];
-        mats.forEach(mat=>{
-          mat.transparent=true;
-          mat.depthWrite=true;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(mat => {
+          mat.transparent = true;
+          mat.depthWrite = true;
         });
-        if(stepIndex===0){
-          setOpacity(child,1);
+        if (stepIndex === 0) {
+          setOpacity(child, 1);
           showMesh(child);
-          child.castShadow=true;
-        }else{
-          setOpacity(child,0);
+          child.castShadow = true;
+        } else {
+          setOpacity(child, 0);
           hideMesh(child);
         }
         stepMeshes[stepIndex].push(child);
@@ -212,343 +233,426 @@ async function init(){
     });
   });
 
-  // --- 为模型生成边缘线（增强边界可见性）---
-  model.traverse(child=>{
-    if(!child.isMesh) return;
-    const mat=child.material;
-    if(!mat || Array.isArray(mat)) return;
-    const col=mat.color;
-    if(!col) return;
-    // 近白色/浅灰色（R/G/B均>0.7）或 米黄/土黄色（暖色调）都加边缘线
-    const isLightGray = col.r>0.7 && col.g>0.7 && col.b>0.7;
-    const isWarmBeige = col.r>0.7 && (col.r-col.b)>0.15;
-    if(isLightGray || isWarmBeige){
-      const edges=new THREE.EdgesGeometry(child.geometry, 20);
-      const lineMat=new THREE.LineBasicMaterial({color:0x444444, transparent:true, opacity:0.7});
-      const edgeLines=new THREE.LineSegments(edges, lineMat);
-      edgeLines.raycast=()=>{};
+  /* ── 为浅色网格体添加边缘线 ── */
+  model.traverse(child => {
+    if (!child.isMesh) return;
+    const mat = child.material;
+    if (!mat || Array.isArray(mat)) return;
+    const col = mat.color;
+    if (!col) return;
+    const isLightGray = col.r > 0.7 && col.g > 0.7 && col.b > 0.7;
+    const isWarmBeige = col.r > 0.7 && (col.r - col.b) > 0.15;
+    if (isLightGray || isWarmBeige) {
+      const edges = new THREE.EdgesGeometry(child.geometry, 20);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.7 });
+      const edgeLines = new THREE.LineSegments(edges, lineMat);
+      edgeLines.raycast = () => {};
       child.add(edgeLines);
     }
   });
-  // --- 检测黄色/米色构件（用于飞出动画）---
-  yellowMeshes=[];
-  const allMeshColors=[];
-  model.traverse(child=>{
-    if(!child.isMesh) return;
-    const mat=child.material;
-    if(!mat || Array.isArray(mat)) return;
-    const col=mat.color;
-    if(!col) return;
-    allMeshColors.push({
-      name: child.name || 'unnamed',
-      r: col.r.toFixed(2),
-      g: col.g.toFixed(2),
-      b: col.b.toFixed(2)
-    });
-    // 米黄/土黄色：暖色调，R明显高于B（差值>0.15），且R>0.7
-    if(col.r>0.7 && (col.r-col.b)>0.15){
-      yellowMeshes.push({
-        object:child,
-        origPos:child.position.clone(),
-        worldY:new THREE.Vector3().setFromMatrixPosition(child.matrixWorld).y
-      });
+
+  /* ── 检测黄色/米色构件（用于飞出动画）──
+       策略：优先按材质名称 _Wood_Veneer_02_2 检测，
+       然后按名称 M1-M6 查找对应构件组 */
+  yellowMeshes = [];
+  flyDirections = [];
+
+  // 收集所有使用暖色材质的网格体
+  const warmBeigeMeshes = [];
+  model.traverse(child => {
+    if (!child.isMesh) return;
+    const mat = child.material;
+    if (!mat) return;
+    // 检查材质名称（单个或数组）
+    const mats = Array.isArray(mat) ? mat : [mat];
+    const isWarmBeige = mats.some(m => m.name && m.name.includes('_Wood_Veneer_02_2'));
+    if (isWarmBeige) {
+      warmBeigeMeshes.push(child);
     }
   });
-  console.log('所有mesh颜色:', JSON.stringify(allMeshColors, null, 2));
-  console.log('检测到黄色构件数量:', yellowMeshes.length);
-  // 按世界Y坐标从低到高排序（从下到上逐个飞出）
-  yellowMeshes.sort((a,b)=>a.worldY-b.worldY);
 
+  console.log('检测到暖色材质网格体:', warmBeigeMeshes.map(m => m.name));
+
+  // 按名称查找 M1-M6 构件组（节点或网格体）
+  const componentNames = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
+  const componentGroups = [];
+
+  for (const name of componentNames) {
+    // 优先查找同名节点（Group）
+    let node = allNodes.find(n => n.name === name && !n.isMesh);
+    if (node) {
+      componentGroups.push({ name, node, isGroup: true });
+      continue;
+    }
+    // 其次查找包含该名称前缀的节点
+    node = allNodes.find(n => n.name && n.name.startsWith(name) && n.children.length > 0 && !n.isMesh);
+    if (node) {
+      componentGroups.push({ name, node, isGroup: true });
+      continue;
+    }
+    // 最后查找同名网格体
+    const mesh = warmBeigeMeshes.find(m => m.name && m.name.startsWith(name));
+    if (mesh) {
+      componentGroups.push({ name, node: mesh, isGroup: false });
+    }
+  }
+
+  console.log('找到飞出构件:', componentGroups.map(c => c.name));
+
+  // 构建飞出列表：M1-M4 向前飞出，M5-M6 向上飞出
+  // M1-M4 按世界Y坐标从低到高排序（从下往上逐个飞出）
+  const forwardComponents = componentGroups.filter(c => c.name <= 'M4');
+  const upComponents = componentGroups.filter(c => c.name >= 'M5');
+
+  // 计算世界Y坐标并排序
+  forwardComponents.forEach(c => {
+    c.worldY = new THREE.Vector3().setFromMatrixPosition(c.node.matrixWorld).y;
+  });
+  forwardComponents.sort((a, b) => a.worldY - b.worldY);
+
+  // 合并：M1-M4（从下到上）然后 M5-M6
+  const orderedComponents = [...forwardComponents, ...upComponents];
+
+  orderedComponents.forEach(comp => {
+    yellowMeshes.push({
+      object: comp.node,
+      origPos: comp.node.position.clone(),
+      worldY: comp.worldY || 0
+    });
+    // M1-M4 向前（+Z），M5-M6 向上（+Y）
+    const isUp = comp.name >= 'M5';
+    flyDirections.push({ dx: 0, dy: isUp ? 1 : 0, dz: isUp ? 0 : 1 });
+  });
+
+  console.log('飞出顺序:', orderedComponents.map(c => c.name));
+  console.log('飞出方向:', flyDirections);
+
+  /* ── 场景布局 ── */
   scene.add(model);
 
-  const box=new THREE.Box3().setFromObject(model);
-  const size=box.getSize(new THREE.Vector3());
-  const center=box.getCenter(new THREE.Vector3());
-  maxDim=Math.max(size.x,size.y,size.z);
-  const fov=camera.fov*Math.PI/180;
-  const dist=(maxDim/2)/Math.tan(fov/2)*1.4;
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  maxDim = Math.max(size.x, size.y, size.z);
+  const fov = camera.fov * Math.PI / 180;
+  const dist = (maxDim / 2) / Math.tan(fov / 2) * 1.4;
 
-  camera.position.set(center.x+dist*0.2, center.y+dist*0.15, center.z+dist);
+  camera.position.set(center.x + dist * 0.2, center.y + dist * 0.15, center.z + dist);
   camera.lookAt(center);
-  camera.near=maxDim*0.01;
-  camera.far=maxDim*100;
+  camera.near = maxDim * 0.01;
+  camera.far = maxDim * 100;
   camera.updateProjectionMatrix();
   controls.target.copy(center);
-  controls.minDistance=dist*0.12;
-  controls.maxDistance=dist*6;
+  controls.minDistance = dist * 0.12;
+  controls.maxDistance = dist * 6;
   controls.update();
 
-  dirLight.position.set(center.x+size.x*0.8, center.y+size.y*1.5, center.z+size.z*0.6);
+  dirLight.position.set(center.x + size.x * 0.8, center.y + size.y * 1.5, center.z + size.z * 0.6);
   dirLight.target.position.copy(center);
-  dirLight.shadow.camera.left=-maxDim;
-  dirLight.shadow.camera.right=maxDim;
-  dirLight.shadow.camera.top=maxDim;
-  dirLight.shadow.camera.bottom=-maxDim;
-  dirLight.shadow.camera.near=0.1;
-  dirLight.shadow.camera.far=maxDim*5;
+  dirLight.shadow.camera.left = -maxDim;
+  dirLight.shadow.camera.right = maxDim;
+  dirLight.shadow.camera.top = maxDim;
+  dirLight.shadow.camera.bottom = -maxDim;
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = maxDim * 5;
   dirLight.shadow.camera.updateProjectionMatrix();
 
-  const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(maxDim*10,maxDim*10),
-    new THREE.ShadowMaterial({opacity:0.22})
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(maxDim * 10, maxDim * 10),
+    new THREE.ShadowMaterial({ opacity: 0.22 })
   );
-  ground.rotation.x=-Math.PI/2;
-  ground.position.y=box.min.y;
-  ground.receiveShadow=true;
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = box.min.y;
+  ground.receiveShadow = true;
   scene.add(ground);
 
-  // 底部补光：照亮模型底部阴影区域
-  const bottomLight=new THREE.DirectionalLight(0xffffff,0.35);
-  bottomLight.position.set(center.x, box.min.y-size.y*0.3, center.z);
+  const bottomLight = new THREE.DirectionalLight(0xffffff, 0.35);
+  bottomLight.position.set(center.x, box.min.y - size.y * 0.3, center.z);
   bottomLight.target.position.copy(center);
   scene.add(bottomLight);
   scene.add(bottomLight.target);
 
   loading.classList.add('hide');
-  enterMask.style.display='flex';
+  enterMask.style.display = 'flex';
   updateUI();
   animate();
 }
 
-let entered=false;
-enterMask.addEventListener('click',()=>{
+/* ── 进入交互 ── */
+enterMask.addEventListener('click', () => {
   enterMask.classList.add('hide');
-  entered=true;
-  bgm.volume=0.2;
-  bgm.play().catch(()=>{});
+  entered = true;
+  bgm.volume = 0.2;
+  bgm.play().catch(() => {});
 });
-init().catch(err=>{loadTxt.textContent='加载失败：'+err.message;});
+init().catch(err => { loadTxt.textContent = '加载失败：' + err.message; });
 
-function animate(){
+function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 
-let index=0, busy=false;
-let yellowPhase='none';  // 'none' | 'flying-out' | 'out' | 'flying-back' | 'done'
-let currentYellowIndex=0;  // 当前要飞出的黄色构件索引（从下到上）
-let maxDim=0;            // 模块级变量，供飞出动画使用
-let yellowMeshes=[];     // 黄色/米色构件列表
-
-function fadeInStep(step){
-  const meshes=stepMeshes[step];
-  meshes.forEach(m=>showMesh(m));
-  const duration=700;
-  const startTime=performance.now();
-  function tick(){
-    const elapsed=performance.now()-startTime;
-    const t=Math.min(elapsed/duration,1);
-    const eased=1-Math.pow(1-t,3);
-    meshes.forEach(m=>setOpacity(m,eased));
-    if(t<1){
-      requestAnimationFrame(tick);
-    }else{
-      meshes.forEach(m=>{ m.castShadow=true; });
-    }
-  }
-  tick();
-}
-
-function fadeOutStep(step){
-  const meshes=stepMeshes[step];
-  meshes.forEach(m=>{ m.castShadow=false; });
-  const start=performance.now();
-  const duration=350;
-  const startOps=meshes.map(m=>{
-    const mat=Array.isArray(m.material)?m.material[0]:m.material;
-    return mat.opacity;
+/* ══════════════════════════════════════════
+   搭建动画：淡入 + 轻微上滑
+   ══════════════════════════════════════════ */
+function fadeInStep(step) {
+  const meshes = stepMeshes[step];
+  meshes.forEach(m => {
+    showMesh(m);
+    m.userData._fadeStartY = m.position.y;
   });
-  function tick(){
-    const t=Math.min((performance.now()-start)/duration,1);
-    meshes.forEach((m,i)=>setOpacity(m, startOps[i]*(1-t)));
-    if(t<1){
-      requestAnimationFrame(tick);
-    }else{
-      meshes.forEach(m=>hideMesh(m));
-    }
-  }
-  tick();
-}
+  const duration = 700;
+  const slideDist = maxDim * 0.025;  // 轻微上滑距离
+  const startTime = performance.now();
 
-// ─ 黄色构件飞出动画（单个构件，从下到上逐个）──
-function flyOutYellow(){
-  if(currentYellowIndex >= yellowMeshes.length) return;
-  const wasRotating=controls.autoRotate;
-  controls.autoRotate=false;
-  busy=true;
-  yellowPhase='flying-out';
-  updateUI();
-
-  const ym=yellowMeshes[currentYellowIndex];
-  const flyDur=600;
-
-  // 底部4个直直向前飞出（+Z方向），顶部2个直直向上飞出（+Y方向）
-  let targetPos;
-  const flyDist=maxDim*0.3;
-  if(currentYellowIndex < 4){
-    // 底部4个：直直向前（+Z方向）
-    targetPos=ym.origPos.clone();
-    targetPos.z += flyDist;
-  } else {
-    // 顶部2个：直直向上（+Y方向）
-    targetPos=ym.origPos.clone();
-    targetPos.y += flyDist;
-  }
-
-  const startTime=performance.now();
-  function tick(){
-    const t=Math.min((performance.now()-startTime)/flyDur, 1);
-    const e=1-Math.pow(1-t, 3);
-    ym.object.position.lerpVectors(ym.origPos, targetPos, e);
-    if(t<1){
+  function tick() {
+    const elapsed = performance.now() - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);   // cubic ease-out
+    meshes.forEach(m => {
+      setOpacity(m, eased);
+      // 从下方轻微滑入
+      const startY = m.userData._fadeStartY || 0;
+      m.position.y = startY - slideDist * (1 - eased);
+    });
+    if (t < 1) {
       requestAnimationFrame(tick);
     } else {
-      busy=false;
-      yellowPhase='out';
-      updateUI();
-      controls.autoRotate=wasRotating;
+      // 确保最终位置精确
+      meshes.forEach(m => {
+        m.position.y = m.userData._fadeStartY || 0;
+        m.castShadow = true;
+      });
     }
   }
   tick();
 }
 
-// ── 黄色构件收回动画（单个构件，从下到上逐个）──
-function flyBackYellow(){
-  if(currentYellowIndex >= yellowMeshes.length) return;
-  const wasRotating=controls.autoRotate;
-  controls.autoRotate=false;
-  busy=true;
-  yellowPhase='flying-back';
+/* ── 搭建动画：淡出 ── */
+function fadeOutStep(step) {
+  const meshes = stepMeshes[step];
+  meshes.forEach(m => { m.castShadow = false; });
+  const start = performance.now();
+  const duration = 350;
+  const startOps = meshes.map(m => {
+    const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+    return mat.opacity;
+  });
+  function tick() {
+    const t = Math.min((performance.now() - start) / duration, 1);
+    meshes.forEach((m, i) => setOpacity(m, startOps[i] * (1 - t)));
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      meshes.forEach(m => hideMesh(m));
+    }
+  }
+  tick();
+}
+
+/* ══════════════════════════════════════════
+   飞出动画：构件沿指定方向飞出
+   ══════════════════════════════════════════ */
+function flyOutYellow() {
+  if (currentYellowIndex >= yellowMeshes.length) return;
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  busy = true;
+  yellowPhase = 'flying-out';
   updateUI();
 
-  const ym=yellowMeshes[currentYellowIndex];
-  const curPos=ym.object.position.clone();
-  const flyDur=500;
+  const ym = yellowMeshes[currentYellowIndex];
+  const dir = flyDirections[currentYellowIndex];
+  const flyDur = 650;
+  const flyDist = maxDim * 0.35;
 
-  const startTime=performance.now();
-  function tick(){
-    const t=Math.min((performance.now()-startTime)/flyDur, 1);
-    const e=t*t*t;
+  const targetPos = ym.origPos.clone();
+  targetPos.x += dir.dx * flyDist;
+  targetPos.y += dir.dy * flyDist;
+  targetPos.z += dir.dz * flyDist;
+
+  const startTime = performance.now();
+  function tick() {
+    const t = Math.min((performance.now() - startTime) / flyDur, 1);
+    // 使用带轻微弹跳的缓动：先快后慢，末端微弹
+    const e = easeOutBack(t);
+    ym.object.position.lerpVectors(ym.origPos, targetPos, e);
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      ym.object.position.copy(targetPos);
+      busy = false;
+      yellowPhase = 'out';
+      updateUI();
+      controls.autoRotate = wasRotating;
+    }
+  }
+  tick();
+}
+
+/* ── 收回动画：构件回到原位 ── */
+function flyBackYellow() {
+  if (currentYellowIndex >= yellowMeshes.length) return;
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  busy = true;
+  yellowPhase = 'flying-back';
+  updateUI();
+
+  const ym = yellowMeshes[currentYellowIndex];
+  const curPos = ym.object.position.clone();
+  const flyDur = 500;
+
+  const startTime = performance.now();
+  function tick() {
+    const t = Math.min((performance.now() - startTime) / flyDur, 1);
+    const e = t * t * (3 - 2 * t);  // smoothstep
     ym.object.position.lerpVectors(curPos, ym.origPos, e);
-    if(t<1){
+    if (t < 1) {
       requestAnimationFrame(tick);
     } else {
       ym.object.position.copy(ym.origPos);
       currentYellowIndex++;
-      busy=false;
-      if(currentYellowIndex >= yellowMeshes.length){
-        yellowPhase='done';
+      busy = false;
+      if (currentYellowIndex >= yellowMeshes.length) {
+        yellowPhase = 'done';
       } else {
-        yellowPhase='none';
+        yellowPhase = 'none';
       }
       updateUI();
-      controls.autoRotate=wasRotating;
+      controls.autoRotate = wasRotating;
     }
   }
   tick();
 }
 
-function goTo(next){
-  if(busy) return;
-  if(next===index) return;
-  if(next>index){
-    busy=true;
-    const wasRotating=controls.autoRotate;
-    controls.autoRotate=false;
-    index=next;
+/* ── 缓动函数 ── */
+function easeOutBack(t) {
+  const c1 = 1.2;   // 较小的过冲量，避免太夸张
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+/* ══════════════════════════════════════════
+   步骤导航
+   ══════════════════════════════════════════ */
+function goTo(next) {
+  if (busy) return;
+  if (next === index) return;
+  if (next > index) {
+    busy = true;
+    const wasRotating = controls.autoRotate;
+    controls.autoRotate = false;
+    index = next;
     updateUI();
     fadeInStep(next);
-    setTimeout(()=>{
-      controls.autoRotate=wasRotating;
-      busy=false;
-    },750);
-  }else{
-    busy=true;
-    const wasRotating=controls.autoRotate;
-    controls.autoRotate=false;
-    const oldIndex=index;
-    index=next;
+    setTimeout(() => {
+      controls.autoRotate = wasRotating;
+      busy = false;
+    }, 750);
+  } else {
+    busy = true;
+    const wasRotating = controls.autoRotate;
+    controls.autoRotate = false;
+    const oldIndex = index;
+    index = next;
     updateUI();
-    for(let i=oldIndex;i>next;i--){
+    for (let i = oldIndex; i > next; i--) {
       fadeOutStep(i);
     }
-    setTimeout(()=>{
-      controls.autoRotate=wasRotating;
-      busy=false;
-    },400);
+    setTimeout(() => {
+      controls.autoRotate = wasRotating;
+      busy = false;
+    }, 400);
   }
 }
 
-function updateUI(){
-  titleMain.textContent=titlePrefix+' · '+labels[index];
-  titleSub.textContent='第 '+(index+1)+' / '+labels.length+' 步';
-  [...progress.children].forEach((d,i)=>{
-    d.className='dot'+(i<index?' done':i===index?' active':'');
+/* ── 重置所有状态 ── */
+function resetAll() {
+  yellowPhase = 'none';
+  currentYellowIndex = 0;
+  yellowMeshes.forEach(ym => ym.object.position.copy(ym.origPos));
+}
+
+/* ── UI 更新 ── */
+function updateUI() {
+  titleMain.textContent = titlePrefix + ' · ' + labels[index];
+  titleSub.textContent = '第 ' + (index + 1) + ' / ' + labels.length + ' 步';
+  [...progress.children].forEach((d, i) => {
+    d.className = 'dot' + (i < index ? ' done' : i === index ? ' active' : '');
   });
-  if(yellowPhase==='flying-out'){
-    tip.textContent='黄色构件飞出中…';
-  }else if(yellowPhase==='out'){
-    tip.textContent='点击屏幕收回黄色构件';
-  }else if(yellowPhase==='flying-back'){
-    tip.textContent='黄色构件收回中…';
-  }else if(yellowPhase==='done'){
-    tip.textContent='演示完成！点击屏幕重新开始';
-  }else if(yellowPhase==='none' && index>=labels.length-1){
-    const remaining=yellowMeshes.length-currentYellowIndex;
-    tip.textContent = remaining>0
-      ? `点击屏幕飞出第 ${currentYellowIndex+1} 个黄色构件（剩余${remaining}个）`
-      : '搭建完成！点击屏幕重新开始';
-  }else{
-    tip.textContent='点击屏幕搭建下一步';
+
+  if (yellowPhase === 'flying-out') {
+    tip.textContent = '构件飞出中…';
+  } else if (yellowPhase === 'out') {
+    const name = yellowMeshes[currentYellowIndex]
+      ? (yellowMeshes[currentYellowIndex].object.name || '构件')
+      : '';
+    tip.textContent = `点击屏幕收回 ${name}`;
+  } else if (yellowPhase === 'flying-back') {
+    tip.textContent = '构件收回中…';
+  } else if (yellowPhase === 'done') {
+    tip.textContent = '演示完成！点击屏幕重新开始';
+  } else if (yellowPhase === 'none' && index >= labels.length - 1) {
+    if (currentYellowIndex < yellowMeshes.length) {
+      const remaining = yellowMeshes.length - currentYellowIndex;
+      const nextName = yellowMeshes[currentYellowIndex]
+        ? (yellowMeshes[currentYellowIndex].object.name || '构件')
+        : '';
+      const dirText = flyDirections[currentYellowIndex] && flyDirections[currentYellowIndex].dy > 0
+        ? '向上' : '向前';
+      tip.textContent = `点击屏幕：${nextName} ${dirText}飞出（剩余 ${remaining} 个）`;
+    } else {
+      tip.textContent = '搭建完成！点击屏幕重新开始';
+    }
+  } else {
+    tip.textContent = '点击屏幕搭建下一步';
   }
 }
 
-let pTime=0,pMoved=false;
-canvas.addEventListener('pointerdown',e=>{pTime=Date.now();pMoved=false;});
-canvas.addEventListener('pointermove',()=>{pMoved=true;});
-canvas.addEventListener('pointerup',e=>{
-  if(!entered) return;
-  if(Date.now()-pTime<300&&!pMoved){
-    if(yellowPhase==='none' && index<labels.length-1){
+/* ══════════════════════════════════════════
+   交互事件
+   ══════════════════════════════════════════ */
+let pTime = 0, pMoved = false;
+canvas.addEventListener('pointerdown', e => { pTime = Date.now(); pMoved = false; });
+canvas.addEventListener('pointermove', () => { pMoved = true; });
+canvas.addEventListener('pointerup', e => {
+  if (!entered) return;
+  if (Date.now() - pTime < 300 && !pMoved) {
+    if (yellowPhase === 'none' && index < labels.length - 1) {
       // 搭建阶段：前进一步
-      goTo(index+1);
-    }else if(yellowPhase==='none' && index>=labels.length-1 && currentYellowIndex<yellowMeshes.length){
-      // 搭建完成：飞出当前黄色构件
+      goTo(index + 1);
+    } else if (yellowPhase === 'none' && index >= labels.length - 1 && currentYellowIndex < yellowMeshes.length) {
+      // 搭建完成：飞出当前构件
       flyOutYellow();
-    }else if(yellowPhase==='out'){
-      // 已飞出：收回当前黄色构件
+    } else if (yellowPhase === 'out') {
+      // 已飞出：收回当前构件
       flyBackYellow();
-    }else if(yellowPhase==='done'){
+    } else if (yellowPhase === 'done') {
       // 全部完成：重新开始
-      yellowPhase='none';
-      currentYellowIndex=0;
-      yellowMeshes.forEach(ym=>ym.object.position.copy(ym.origPos));
-      goTo(0);
-    }else if(yellowPhase==='none' && index>=labels.length-1){
-      // 搭建完成但无黄色构件：重新开始
+      resetAll();
       goTo(0);
     }
   }
 });
 
-muteBtn.addEventListener('click',e=>{
+muteBtn.addEventListener('click', e => {
   e.stopPropagation();
-  if(bgm.paused){ bgm.play().catch(()=>{}); muteBtn.textContent='🔊'; }
-  else{ bgm.pause(); muteBtn.textContent='🔇'; }
+  if (bgm.paused) { bgm.play().catch(() => {}); muteBtn.textContent = '🔊'; }
+  else { bgm.pause(); muteBtn.textContent = '🔇'; }
 });
-restartBtn.addEventListener('click',e=>{
+
+restartBtn.addEventListener('click', e => {
   e.stopPropagation();
-  yellowPhase='none';
-  currentYellowIndex=0;
-  yellowMeshes.forEach(ym=>ym.object.position.copy(ym.origPos));
+  resetAll();
   goTo(0);
 });
 
-window.addEventListener('resize',()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
