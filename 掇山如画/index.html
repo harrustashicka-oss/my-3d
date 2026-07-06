@@ -161,7 +161,7 @@ let entered=false;
 let maxDim=0;
 
 async function init(){
-  const gltf=await loader.loadAsync('models/Model.glb');
+  const gltf=await loader.loadAsync('models/Model.glb?v='+Date.now());
   const model=gltf.scene;
 
   // --- 修复玻璃/透明材质 ---
@@ -211,7 +211,7 @@ async function init(){
   console.log('找到', groups.length, '个Group:', groups.map(g=>g.name).join(', '));
 
   // --- 为每个Group构建动画数据 ---
-  groupData=groups.map(group=>{
+  groupData=groups.map((group, idx)=>{
     const gBox=new THREE.Box3().setFromObject(group);
     const gCenter=gBox.getCenter(new THREE.Vector3());
     const gSize=gBox.getSize(new THREE.Vector3());
@@ -233,7 +233,7 @@ async function init(){
       origScale:group.scale.clone(),
       center:gCenter.clone(),
       size:gSize.clone(),
-      riseDist:gSize.y * 1.5,           // 上升距离（组高度的1.5倍）
+      riseDist:gSize.y * (idx===0 ? 2.5 : 1.5),  // Group1上升更高(2.5倍)，其余1.5倍
       meshChildren:meshChildren,
       explodeOffset:0                    // 散开偏移量（0=未散开）
     };

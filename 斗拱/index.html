@@ -212,12 +212,59 @@ async function init(){
     });
   });
 
+  // --- 为模型生成边缘线（增强边界可见性）---
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat || Array.isArray(mat)) return;
+    const col=mat.color;
+    if(!col) return;
+    // 近白色/浅灰色（R/G/B均>0.7）或 米黄/土黄色（暖色调）都加边缘线
+    const isLightGray = col.r>0.7 && col.g>0.7 && col.b>0.7;
+    const isWarmBeige = col.r>0.7 && (col.r-col.b)>0.15;
+    if(isLightGray || isWarmBeige){
+      const edges=new THREE.EdgesGeometry(child.geometry, 20);
+      const lineMat=new THREE.LineBasicMaterial({color:0x444444, transparent:true, opacity:0.7});
+      const edgeLines=new THREE.LineSegments(edges, lineMat);
+      edgeLines.raycast=()=>{};
+      child.add(edgeLines);
+    }
+  });
+  // --- 检测黄色/米色构件（用于飞出动画）---
+  yellowMeshes=[];
+  const allMeshColors=[];
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat || Array.isArray(mat)) return;
+    const col=mat.color;
+    if(!col) return;
+    allMeshColors.push({
+      name: child.name || 'unnamed',
+      r: col.r.toFixed(2),
+      g: col.g.toFixed(2),
+      b: col.b.toFixed(2)
+    });
+    // 米黄/土黄色：暖色调，R明显高于B（差值>0.15），且R>0.7
+    if(col.r>0.7 && (col.r-col.b)>0.15){
+      yellowMeshes.push({
+        object:child,
+        origPos:child.position.clone(),
+        worldY:new THREE.Vector3().setFromMatrixPosition(child.matrixWorld).y
+      });
+    }
+  });
+  console.log('所有mesh颜色:', JSON.stringify(allMeshColors, null, 2));
+  console.log('检测到黄色构件数量:', yellowMeshes.length);
+  // 按世界Y坐标从低到高排序（从下到上逐个飞出）
+  yellowMeshes.sort((a,b)=>a.worldY-b.worldY);
+
   scene.add(model);
 
   const box=new THREE.Box3().setFromObject(model);
   const size=box.getSize(new THREE.Vector3());
   const center=box.getCenter(new THREE.Vector3());
-  const maxDim=Math.max(size.x,size.y,size.z);
+  maxDim=Math.max(size.x,size.y,size.z);
   const fov=camera.fov*Math.PI/180;
   const dist=(maxDim/2)/Math.tan(fov/2)*1.4;
 
@@ -279,6 +326,10 @@ function animate(){
 }
 
 let index=0, busy=false;
+let yellowPhase='none';  // 'none' | 'flying-out' | 'out' | 'flying-back' | 'done'
+let currentYellowIndex=0;  // 当前要飞出的黄色构件索引（从下到上）
+let maxDim=0;            // 模块级变量，供飞出动画使用
+let yellowMeshes=[];     // 黄色/米色构件列表
 
 function fadeInStep(step){
   const meshes=stepMeshes[step];
@@ -315,6 +366,84 @@ function fadeOutStep(step){
       requestAnimationFrame(tick);
     }else{
       meshes.forEach(m=>hideMesh(m));
+    }
+  }
+  tick();
+}
+
+// ─ 黄色构件飞出动画（单个构件，从下到上逐个）──
+function flyOutYellow(){
+  if(currentYellowIndex >= yellowMeshes.length) return;
+  const wasRotating=controls.autoRotate;
+  controls.autoRotate=false;
+  busy=true;
+  yellowPhase='flying-out';
+  updateUI();
+
+  const ym=yellowMeshes[currentYellowIndex];
+  const flyDur=600;
+
+  // 底部4个直直向前飞出（+Z方向），顶部2个直直向上飞出（+Y方向）
+  let targetPos;
+  const flyDist=maxDim*0.3;
+  if(currentYellowIndex < 4){
+    // 底部4个：直直向前（+Z方向）
+    targetPos=ym.origPos.clone();
+    targetPos.z += flyDist;
+  } else {
+    // 顶部2个：直直向上（+Y方向）
+    targetPos=ym.origPos.clone();
+    targetPos.y += flyDist;
+  }
+
+  const startTime=performance.now();
+  function tick(){
+    const t=Math.min((performance.now()-startTime)/flyDur, 1);
+    const e=1-Math.pow(1-t, 3);
+    ym.object.position.lerpVectors(ym.origPos, targetPos, e);
+    if(t<1){
+      requestAnimationFrame(tick);
+    } else {
+      busy=false;
+      yellowPhase='out';
+      updateUI();
+      controls.autoRotate=wasRotating;
+    }
+  }
+  tick();
+}
+
+// ── 黄色构件收回动画（单个构件，从下到上逐个）──
+function flyBackYellow(){
+  if(currentYellowIndex >= yellowMeshes.length) return;
+  const wasRotating=controls.autoRotate;
+  controls.autoRotate=false;
+  busy=true;
+  yellowPhase='flying-back';
+  updateUI();
+
+  const ym=yellowMeshes[currentYellowIndex];
+  const curPos=ym.object.position.clone();
+  const flyDur=500;
+
+  const startTime=performance.now();
+  function tick(){
+    const t=Math.min((performance.now()-startTime)/flyDur, 1);
+    const e=t*t*t;
+    ym.object.position.lerpVectors(curPos, ym.origPos, e);
+    if(t<1){
+      requestAnimationFrame(tick);
+    } else {
+      ym.object.position.copy(ym.origPos);
+      currentYellowIndex++;
+      busy=false;
+      if(currentYellowIndex >= yellowMeshes.length){
+        yellowPhase='done';
+      } else {
+        yellowPhase='none';
+      }
+      updateUI();
+      controls.autoRotate=wasRotating;
     }
   }
   tick();
@@ -357,7 +486,22 @@ function updateUI(){
   [...progress.children].forEach((d,i)=>{
     d.className='dot'+(i<index?' done':i===index?' active':'');
   });
-  tip.textContent = index<labels.length-1 ? '点击屏幕搭建下一步' : '搭建完成！点击屏幕重新开始';
+  if(yellowPhase==='flying-out'){
+    tip.textContent='黄色构件飞出中…';
+  }else if(yellowPhase==='out'){
+    tip.textContent='点击屏幕收回黄色构件';
+  }else if(yellowPhase==='flying-back'){
+    tip.textContent='黄色构件收回中…';
+  }else if(yellowPhase==='done'){
+    tip.textContent='演示完成！点击屏幕重新开始';
+  }else if(yellowPhase==='none' && index>=labels.length-1){
+    const remaining=yellowMeshes.length-currentYellowIndex;
+    tip.textContent = remaining>0
+      ? `点击屏幕飞出第 ${currentYellowIndex+1} 个黄色构件（剩余${remaining}个）`
+      : '搭建完成！点击屏幕重新开始';
+  }else{
+    tip.textContent='点击屏幕搭建下一步';
+  }
 }
 
 let pTime=0,pMoved=false;
@@ -366,9 +510,23 @@ canvas.addEventListener('pointermove',()=>{pMoved=true;});
 canvas.addEventListener('pointerup',e=>{
   if(!entered) return;
   if(Date.now()-pTime<300&&!pMoved){
-    if(index<labels.length-1){
+    if(yellowPhase==='none' && index<labels.length-1){
+      // 搭建阶段：前进一步
       goTo(index+1);
-    }else{
+    }else if(yellowPhase==='none' && index>=labels.length-1 && currentYellowIndex<yellowMeshes.length){
+      // 搭建完成：飞出当前黄色构件
+      flyOutYellow();
+    }else if(yellowPhase==='out'){
+      // 已飞出：收回当前黄色构件
+      flyBackYellow();
+    }else if(yellowPhase==='done'){
+      // 全部完成：重新开始
+      yellowPhase='none';
+      currentYellowIndex=0;
+      yellowMeshes.forEach(ym=>ym.object.position.copy(ym.origPos));
+      goTo(0);
+    }else if(yellowPhase==='none' && index>=labels.length-1){
+      // 搭建完成但无黄色构件：重新开始
       goTo(0);
     }
   }
@@ -381,6 +539,9 @@ muteBtn.addEventListener('click',e=>{
 });
 restartBtn.addEventListener('click',e=>{
   e.stopPropagation();
+  yellowPhase='none';
+  currentYellowIndex=0;
+  yellowMeshes.forEach(ym=>ym.object.position.copy(ym.origPos));
   goTo(0);
 });
 

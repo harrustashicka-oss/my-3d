@@ -242,6 +242,21 @@ async function init(){
       }
     });
     scene.add(gltf.scene);
+
+    // --- 为白色模型生成边缘线（增强边界可见性）---
+    gltf.scene.traverse(child=>{
+      if(!child.isMesh) return;
+      const mat=child.material;
+      if(!mat || Array.isArray(mat)) return;
+      const col=mat.color;
+      if(col && col.getHex()===0xffffff){
+        const edges=new THREE.EdgesGeometry(child.geometry, 20);
+        const lineMat=new THREE.LineBasicMaterial({color:0x666666, transparent:true, opacity:0.6});
+        const edgeLines=new THREE.LineSegments(edges, lineMat);
+        edgeLines.raycast=()=>{};
+        child.add(edgeLines);
+      }
+    });
   }
 
   // 计算整体 bounding box，设置相机和灯光
