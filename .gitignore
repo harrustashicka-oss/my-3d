@@ -6,6 +6,13 @@ upload_to_github/
 __pycache__/
 *.pyc
 
+# 调试/实验脚本
+_check*.mjs
+*.tmp.mjs
+
+# 备份文件
+*.bak
+
 # 系统文件
 .DS_Store
 Thumbs.db
