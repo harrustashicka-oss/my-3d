@@ -53,7 +53,7 @@
 <canvas id="canvas"></canvas>
 
 <div class="title-bar" id="titleBar">
-  <div class="title-main" id="titleMain">斗拱 · G1</div>
+  <div class="title-main" id="titleMain">墨香斗影</div>
   <div class="title-sub" id="titleSub">第 1 / 8 步</div>
 </div>
 <div class="controls">
@@ -84,8 +84,18 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /* ── 搭建步骤标签（8步） ── */
-const labels = ['G1','G2','G3','04','05','06.1','M5','M6'];
-const titlePrefix = '斗拱';
+const labels = ['G1','G2','G3','04','05','061','M5','M6'];
+const titlePrefix = '墨香斗影';
+
+/* ── 飞出构件对应的艺术术语 ── */
+const componentArtNames = {
+  'M1': '绞转',
+  'M2': '和缓',
+  'M3': '浓淡',
+  'M4': '藏露',
+  'M5': '翻折',
+  'M6': '顿挫'
+};
 
 const titleBar = document.getElementById('titleBar'),
       titleMain = document.getElementById('titleMain'),
@@ -185,24 +195,50 @@ async function init() {
   const gltf = await loader.loadAsync('models/dougong.gltf');
   const model = gltf.scene;
 
-  /* ── 按名称查找8个构件组 ── */
+  /* ── 重构场景层级：将M1、M2从G1中分离为独立顶层组 ──
+       原结构：G1 → [M2, M1, 0]
+       新结构：G1 → [0], M1, M2 均为model直接子节点 */
   const allNodes = [];
   model.traverse(child => { allNodes.push(child); });
 
+  const g1 = allNodes.find(n => n.name === 'G1');
+  const m1Node = allNodes.find(n => n.name === 'M1' && !n.isMesh);
+  const m2Node = allNodes.find(n => n.name === 'M2' && !n.isMesh);
+
+  if (g1 && m1Node && m2Node) {
+    g1.remove(m1Node, m2Node);
+    model.add(m1Node);
+    model.add(m2Node);
+    console.log('已重构场景：M1、M2 从 G1 分离为独立顶层组');
+  }
+
+  /* ─ 重新收集节点（层级已改变）── */
+  allNodes.length = 0;
+  model.traverse(child => { allNodes.push(child); });
+
+  /* ── 按名称查找8个构件组 ── */
   const groups = [];
   for (const name of labels) {
     const found = allNodes.find(n => n.name === name && !n.isMesh);
     if (found) {
       groups.push(found);
     } else {
-      // 回退：按前缀匹配
       const prefix = name;
       const fallback = allNodes.find(n => n.name && n.name.startsWith(prefix) && n.children.length > 0 && !n.isMesh);
-      if (fallback) groups.push(fallback);
+      if (fallback) {
+        groups.push(fallback);
+        console.warn('标签 "'+name+'" 未精确匹配，使用前缀回退: '+fallback.name);
+      } else {
+        console.error('标签 "'+name+'" 未找到任何匹配节点！');
+      }
     }
   }
 
   console.log('找到构件组:', groups.map(g => g.name));
+  console.log('各组子节点:', groups.map(g => g.name + '→[' + g.children.map(c=>c.name).join(',') + ']'));
+
+  /* ── 调试：输出所有非mesh节点名称 ── */
+  console.log('所有Group节点:', allNodes.filter(n=>!n.isMesh && n.children && n.children.length>0).map(n=>n.name));
 
   /* ── 初始化每个步骤的网格体 ── */
   groups.forEach((group, stepIndex) => {
@@ -575,34 +611,43 @@ function resetAll() {
   yellowMeshes.forEach(ym => ym.object.position.copy(ym.origPos));
 }
 
-/* ── UI 更新 ── */
+/* ─ UI 更新 ── */
 function updateUI() {
-  titleMain.textContent = titlePrefix + ' · ' + labels[index];
+  // 飞出阶段显示艺术术语，搭建阶段只显示主标题
+  if (yellowPhase !== 'none' && yellowPhase !== 'done' && currentYellowIndex < yellowMeshes.length) {
+    const compName = yellowMeshes[currentYellowIndex].object.name || '';
+    const artName = componentArtNames[compName] || compName;
+    titleMain.textContent = titlePrefix + ' · ' + artName;
+  } else {
+    titleMain.textContent = titlePrefix;
+  }
   titleSub.textContent = '第 ' + (index + 1) + ' / ' + labels.length + ' 步';
   [...progress.children].forEach((d, i) => {
     d.className = 'dot' + (i < index ? ' done' : i === index ? ' active' : '');
   });
 
   if (yellowPhase === 'flying-out') {
-    tip.textContent = '构件飞出中…';
+    const compName = yellowMeshes[currentYellowIndex]?.object.name || '';
+    const artName = componentArtNames[compName] || compName;
+    tip.textContent = `${artName} 飞出中…`;
   } else if (yellowPhase === 'out') {
-    const name = yellowMeshes[currentYellowIndex]
-      ? (yellowMeshes[currentYellowIndex].object.name || '构件')
-      : '';
-    tip.textContent = `点击屏幕收回 ${name}`;
+    const compName = yellowMeshes[currentYellowIndex]?.object.name || '';
+    const artName = componentArtNames[compName] || compName;
+    tip.textContent = `点击屏幕收回 · ${artName}`;
   } else if (yellowPhase === 'flying-back') {
-    tip.textContent = '构件收回中…';
+    const compName = yellowMeshes[currentYellowIndex]?.object.name || '';
+    const artName = componentArtNames[compName] || compName;
+    tip.textContent = `${artName} 收回中…`;
   } else if (yellowPhase === 'done') {
     tip.textContent = '演示完成！点击屏幕重新开始';
   } else if (yellowPhase === 'none' && index >= labels.length - 1) {
     if (currentYellowIndex < yellowMeshes.length) {
       const remaining = yellowMeshes.length - currentYellowIndex;
-      const nextName = yellowMeshes[currentYellowIndex]
-        ? (yellowMeshes[currentYellowIndex].object.name || '构件')
-        : '';
+      const compName = yellowMeshes[currentYellowIndex]?.object.name || '';
+      const artName = componentArtNames[compName] || compName;
       const dirText = flyDirections[currentYellowIndex] && flyDirections[currentYellowIndex].dy > 0
         ? '向上' : '向前';
-      tip.textContent = `点击屏幕：${nextName} ${dirText}飞出（剩余 ${remaining} 个）`;
+      tip.textContent = `点击屏幕：${artName} ${dirText}飞出（剩余 ${remaining} 个）`;
     } else {
       tip.textContent = '搭建完成！点击屏幕重新开始';
     }
