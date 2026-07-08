@@ -187,8 +187,20 @@ let origPositions = {}; // 各节点原始位置
 let gongxiangFollows = null; // 当前 gongxiang 跟随的组名（'Group3' 或 'Group4' 或 null）
 
 /* ── 黑色模型（抬升用） ── */
-let blackMeshes = [];        // 所有材质接近黑色的网格
+let blackMeshes = [];        // 所有材质接近黑色的网格（及关联的白色边框线）
 let blackLifted = false;     // 是否已触发抬升，防止重复触发
+
+/* 递归收集对象的所有子对象（用于抬升时带动轮廓线/EdgeLines） */
+function collectLiftChildren(obj) {
+  obj.children.forEach(c => {
+    if (!c.userData._liftTag) {
+      c.userData._liftTag = true;
+      c.userData.baseY = c.position.y;
+      blackMeshes.push(c);
+      collectLiftChildren(c);
+    }
+  });
+}
 
 /* ══════════════════════════════════════════
    模型初始化
@@ -265,10 +277,14 @@ async function init() {
     if (isBlackMesh) {
       blackMeshes.push(child);
       child.userData.baseY = child.position.y;
-      // 同父节点下的兄弟 Mesh 一起抬升（含白色边框/框架）
+
+      // ① 递归收集黑色 Mesh 自身的所有子对象（含附着在它上面的 EdgeLines 轮廓线）
+      collectLiftChildren(child);
+
+      // ② 收集同父节点下的白色边框/线框（Mesh 或 LineSegments），它们视觉上属于该黑色笔画
       if (child.parent) {
         child.parent.children.forEach(sib => {
-          if (sib.isMesh && sib !== child && !sib.userData._liftTag) {
+          if (sib !== child && !sib.userData._liftTag && (sib.isMesh || sib.isLine || sib.isLineSegments)) {
             sib.userData._liftTag = true;
             sib.userData.baseY = sib.position.y;
             blackMeshes.push(sib);
