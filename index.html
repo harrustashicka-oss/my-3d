@@ -15,6 +15,9 @@
   .card{display:flex;flex-direction:column;align-items:center;text-decoration:none;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:30px 22px 24px;transition:all .3s ease;backdrop-filter:blur(6px);cursor:pointer}
   .card:hover{background:rgba(255,255,255,.12);border-color:rgba(255,210,74,.4);transform:translateY(-4px)}
   .card .icon{font-size:40px;margin-bottom:14px}
+  .card .icon img{width:80px;height:auto;border-radius:8px}
+  .card .icon.icon-lg img{width:112px}
+  .card .icon.icon-xl img{width:132px}
   .card .name{font-size:20px;font-weight:600;margin-bottom:6px;letter-spacing:1px}
   .card .desc{font-size:13px;opacity:.6;text-align:center;line-height:1.5;margin-bottom:16px}
   .card .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -38,13 +41,13 @@
 <script>
 const BASE_URL = 'https://harrustashicka-oss.github.io/my-3d';
 const models = [
-  { name: '屏障世界', path: '屏障世界', icon: '🏯', desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
-  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', desc: '空间搭建交互动画演示' },
-  { name: '墨香斗影', path: '斗拱',     icon: '🏛️', desc: '8 步搭建动画<br>G1 → G2 → G3 → 04 → 05 → 061 → M5 → M6' },
-  { name: '洞石鹤庭',  path: '洞石鹤庭', icon: '🏺', desc: '瘦、皱、透、漏<br>空间搭建交互动画演示' },
-  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', desc: '3 组建升交互演示' },
-  { name: '解字游园',  path: '解字游园', icon: '🎋', desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
-  { name: '小模型5',  path: '小模型5', icon: '🪨', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '屏障世界', path: '屏障世界', icon: '🏯', iconImg: 'icons/pingzhang-icon.png', iconLg: true, desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
+  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', iconImg: 'icons/wulin-icon.png', iconLg: true, desc: '空间搭建交互动画演示' },
+  { name: '墨香斗影', path: '斗拱',     icon: '🏛️', iconImg: 'icons/dougong-icon.png', iconLg: true, desc: '8 步搭建动画' },
+  { name: '洞石鹤庭',  path: '洞石鹤庭', icon: '🏺', iconImg: 'icons/dongshi-icon.png', desc: '瘦、皱、透、漏<br>空间搭建交互动画演示' },
+  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', iconImg: 'icons/dushan-icon.png', iconLg: true, desc: '3 组建升交互演示' },
+  { name: '解字游园',  path: '解字游园', icon: '🎋', iconImg: 'icons/jiezi-icon.png', iconXl: true, desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
+  { name: '小模型5',  path: '小模型5', icon: '🪨', iconImg: 'icons/xiaomoxing5-icon.png', iconLg: true, desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型1',  path: '小模型1', icon: '🪨', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型2',  path: '小模型2', icon: '🪨', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型3',  path: '小模型3', icon: '🪨', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
@@ -67,8 +70,15 @@ function createCard(m) {
   card.href = m.path + '/index.html';
   
   const icon = document.createElement('div');
-  icon.className = 'icon';
-  icon.textContent = m.icon;
+  icon.className = 'icon' + (m.iconXl ? ' icon-xl' : (m.iconLg ? ' icon-lg' : ''));
+  if (m.iconImg) {
+    const img = document.createElement('img');
+    img.src = m.iconImg;
+    img.alt = m.name;
+    icon.appendChild(img);
+  } else {
+    icon.textContent = m.icon;
+  }
   card.appendChild(icon);
   
   const name = document.createElement('div');
