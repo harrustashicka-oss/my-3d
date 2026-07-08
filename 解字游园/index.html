@@ -265,6 +265,16 @@ async function init() {
     if (isBlackMesh) {
       blackMeshes.push(child);
       child.userData.baseY = child.position.y;
+      // 同父节点下的兄弟 Mesh 一起抬升（含白色边框/框架）
+      if (child.parent) {
+        child.parent.children.forEach(sib => {
+          if (sib.isMesh && sib !== child && !sib.userData._liftTag) {
+            sib.userData._liftTag = true;
+            sib.userData.baseY = sib.position.y;
+            blackMeshes.push(sib);
+          }
+        });
+      }
     }
   });
 
@@ -508,10 +518,9 @@ function updateUI() {
     d.className = 'dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
   });
 
-  // 所有动画（8步）全部结束后，触发黑色模型整体抬升一次
-  if (currentStep >= steps.length && !blackLifted && blackMeshes.length) {
-    blackLifted = true;
-    liftBlackModels();
+  // 8步全部结束后提示点击抬升（不再自动触发）
+  if (currentStep >= steps.length && blackMeshes.length && !blackLifted) {
+    tip.textContent = '演示完成！点击屏幕抬升黑色模型';
   }
 }
 
@@ -533,8 +542,13 @@ canvas.addEventListener('pointerup', e => {
       const step = steps[0];
       animateRise(step.group, step.shared);
     } else if (currentStep >= steps.length) {
-      // 全部完成：重置
-      resetAll();
+      // 全部完成：首次点击抬升，再次点击重置
+      if (!blackLifted) {
+        blackLifted = true;
+        liftBlackModels();
+      } else {
+        resetAll();
+      }
     } else {
       // 执行当前步骤
       const step = steps[currentStep];
@@ -556,8 +570,10 @@ function resetAll() {
   for (const [name, node] of Object.entries(groupNodes)) {
     node.position.copy(origPositions[name]);
   }
-  // 恢复黑色模型抬升
+  // 恢复黑色模型及关联白色边框抬升
   blackMeshes.forEach(m => { m.position.y = m.userData.baseY; });
+  blackMeshes.forEach(m => { if (m.userData._liftTag) delete m.userData._liftTag; });
+  blackMeshes.length = 0;
   blackLifted = false;
   updateUI();
 }
