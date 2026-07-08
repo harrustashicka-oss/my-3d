@@ -342,12 +342,11 @@ function doPhase(groupIdx, phase){
   const wasRotating=controls.autoRotate;
   controls.autoRotate=false;
   if(phase===0){
-    // 上升阶段：显示对应诗意的标题（行迷 / 将至 / 望远）
+    // 上升阶段：显示对应诗意的标题（行迷 / 将至 / 望远），并保持到本组动画彻底结束
     titleMain.textContent=GROUP_RISE_TITLES[groupIdx]||'掇山如画';
     titleBar.classList.remove('hide');
-  }else{
-    titleBar.classList.add('hide');
   }
+  // 其余阶段不隐藏标题栏，主标题保持当前组的诗意标题（行迷/将至/望远）
 
   if(phase===0){
     // ▲ 上升
@@ -533,15 +532,16 @@ function doPhase(groupIdx, phase){
       const e=easeInCubic(t);
       group.position.y=startY + (data.origPos.y-startY)*e;
       group.scale.setScalar(startScale + (1-startScale)*e);
-    }, ()=>{
-      // 精确归位
-      group.position.copy(data.origPos);
-      group.scale.copy(data.origScale);
-      controls.autoRotate=wasRotating;
-      titleBar.classList.remove('hide');
+  }, ()=>{
+    // 精确归位
+    group.position.copy(data.origPos);
+    group.scale.copy(data.origScale);
+    controls.autoRotate=wasRotating;
+    titleBar.classList.remove('hide');
+    titleMain.textContent='掇山如画';  // 本组动画彻底结束，主标题归位，等待下一组
 
-      // 进入下一组或循环
-      currentGroup++;
+    // 进入下一组或循环
+    currentGroup++;
       currentPhase=0;
       if(currentGroup>=groups.length){
         currentGroup=0;
@@ -581,7 +581,7 @@ function handleClick(){
 function updateTip(text){
   tip.textContent=text;
   titleSub.textContent='第'+(currentGroup+1)+'组 / 共3组';
-  titleMain.textContent='掇山如画';
+  // 刻意不在此覆盖 titleMain，以便保持当前组的诗意标题（行迷/将至/望远）
 }
 
 function updateProgress(doneIdx){

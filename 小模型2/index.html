@@ -100,7 +100,7 @@ renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.shadowMap.radius=8;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.0;
+renderer.toneMappingExposure=0.85;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 const scene=new THREE.Scene();
@@ -118,7 +118,7 @@ dirLight.shadow.blurSamples=25;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const ambLight=new THREE.AmbientLight(0xffffff, 0.25);
+const ambLight=new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambLight);
 
 // ── 控制器（优化平移 + 缩放体验）──
@@ -128,10 +128,10 @@ controls.dampingFactor=0.08;
 controls.autoRotate=true;
 controls.autoRotateSpeed=0.5;
 controls.enablePan=true;
-controls.screenSpacePanning=true;   // 屏幕空间平移，放大后拖动更直观
-controls.panSpeed=1.2;              // 提高平移速度
-controls.minDistance=0.5;           // 允许更近距离放大
-controls.maxDistance=5000;          // 允许更远距离缩小
+controls.screenSpacePanning=true;
+controls.panSpeed=1.2;
+controls.minDistance=0.5;
+controls.maxDistance=5000;
 
 // ── 加载管理器 ──
 const loadingManager=new THREE.LoadingManager();
@@ -147,8 +147,27 @@ let model=null, mixer=null, action=null, animDuration=0;
 let state='closed';
 let wasRotating=false;
 
+// ── 计算有效动画时长：跳过尾部静止保持段 ──
+function getMotionEnd(clip){
+  let end=0;
+  for(const tr of clip.tracks){
+    const times=tr.times, n=times.length, vs=tr.valueSize;
+    if(n<2) continue;
+    const lastOff=(n-1)*vs;
+    const lval=[]; for(let k=0;k<vs;k++) lval.push(tr.values[lastOff+k]);
+    let lastChange=times[0];
+    for(let i=n-2;i>0;i--){
+      const off=i*vs; let diff=false;
+      for(let k=0;k<vs;k++) if(Math.abs(tr.values[off+k]-lval[k])>1e-4) diff=true;
+      if(diff){ lastChange=times[i+1]; break; }
+    }
+    if(lastChange>end) end=lastChange;
+  }
+  return end>0?end:clip.duration;
+}
+
 async function init(){
-  const gltf=await loader.loadAsync('models/Model.gltf');
+  const gltf=await loader.loadAsync('models/Model.glb');
   model=gltf.scene;
 
   // --- 修复玻璃/透明材质 ---
@@ -183,6 +202,23 @@ async function init(){
   });
   if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃材质');
 
+  // --- C4D导出修复：强制双面渲染（内壁面在单面模式下被剔除/背光变黑）---
+  let dsCount=0;
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat) return;
+    const mats=Array.isArray(mat)?mat:[mat];
+    mats.forEach(m=>{
+      if(!m.doubleSided){
+        m.doubleSided=true;
+        m.needsUpdate=true;
+        dsCount++;
+      }
+    });
+  });
+  if(dsCount>0) console.log('✅ 已修复',dsCount,'个材质为双面渲染');
+
   // --- 为白色模型生成边缘线（增强边界可见性）---
   model.traverse(child=>{
     if(!child.isMesh) return;
@@ -201,13 +237,14 @@ async function init(){
   // --- 动画 ---
   if(gltf.animations&&gltf.animations.length>0){
     mixer=new THREE.AnimationMixer(model);
-    action=mixer.clipAction(gltf.animations[0]);
+    const clip=gltf.animations[0];
+    action=mixer.clipAction(clip);
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished=true;
     action.play();
     action.paused=true;
-    animDuration=action.getClip().duration;
-    console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
+    animDuration=getMotionEnd(clip);
+    console.log('🎬 动画已加载，clip时长:', clip.duration.toFixed(2)+'s，有效时长:', animDuration.toFixed(2)+'s');
   }else{
     console.warn('⚠️ 模型没有内置动画');
     tip.textContent='模型无动画，请检查C4D导出设置';
@@ -234,8 +271,8 @@ function setupCamera(model){
   camera.near=maxDim*0.001; camera.far=maxDim*1000;
   camera.updateProjectionMatrix();
   controls.target.copy(center);
-  controls.minDistance=maxDim*0.05;   // 允许放很大
-  controls.maxDistance=dist*8;        // 允许缩很远
+  controls.minDistance=maxDim*0.05;
+  controls.maxDistance=dist*8;
   controls.update();
 
   dirLight.position.set(center.x+size.x*0.8, center.y+size.y*1.5, center.z+size.z*0.6);
@@ -325,7 +362,6 @@ function toggleModel(){
     controls.autoRotate=false;
 
     if(wasFullyOpen){
-      // 已完全展开：stop → 重置 → 跳到末尾 → 倒放
       action.stop();
       action.reset();
       action.time=animDuration;
@@ -333,7 +369,6 @@ function toggleModel(){
       action.paused=false;
       action.play();
     }else{
-      // 展开中点击收回：直接倒放
       action.timeScale=-1;
       action.paused=false;
     }
@@ -351,7 +386,6 @@ canvas.addEventListener('pointerup', e=>{
   const dx=Math.abs(e.clientX-downX);
   const dy=Math.abs(e.clientY-downY);
   const dt=Date.now()-downT;
-  // 移动 <12px 且时间 <800ms 才算点击（允许触屏轻微抖动）
   if(dx<12 && dy<12 && dt<800){
     toggleModel();
   }

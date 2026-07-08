@@ -100,7 +100,7 @@ renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.shadowMap.radius=8;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.0;
+renderer.toneMappingExposure=0.75;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 const scene=new THREE.Scene();
@@ -118,7 +118,7 @@ dirLight.shadow.blurSamples=25;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const ambLight=new THREE.AmbientLight(0xffffff, 0.25);
+const ambLight=new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambLight);
 
 // ── 控制器（优化平移 + 缩放体验）──
@@ -147,8 +147,27 @@ let model=null, mixer=null, action=null, animDuration=0;
 let state='closed';
 let wasRotating=false;
 
+// ── 计算有效动画时长：跳过尾部静止保持段 ──
+function getMotionEnd(clip){
+  let end=0;
+  for(const tr of clip.tracks){
+    const times=tr.times, n=times.length, vs=tr.valueSize;
+    if(n<2) continue;
+    const lastOff=(n-1)*vs;
+    const lval=[]; for(let k=0;k<vs;k++) lval.push(tr.values[lastOff+k]);
+    let lastChange=times[0];
+    for(let i=n-2;i>0;i--){
+      const off=i*vs; let diff=false;
+      for(let k=0;k<vs;k++) if(Math.abs(tr.values[off+k]-lval[k])>1e-4) diff=true;
+      if(diff){ lastChange=times[i+1]; break; }
+    }
+    if(lastChange>end) end=lastChange;
+  }
+  return end>0?end:clip.duration;
+}
+
 async function init(){
-  const gltf=await loader.loadAsync('models/Model.gltf');
+  const gltf=await loader.loadAsync('models/Model.glb');
   model=gltf.scene;
 
   // --- 修复玻璃/透明材质 ---
@@ -183,6 +202,41 @@ async function init(){
   });
   if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃材质');
 
+  // --- C4D导出修复：强制双面渲染（内壁面在单面模式下被剔除/背光变黑）---
+  let dsCount=0;
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat) return;
+    const mats=Array.isArray(mat)?mat:[mat];
+    mats.forEach(m=>{
+      if(!m.doubleSided){
+        m.doubleSided=true;
+        m.needsUpdate=true;
+        dsCount++;
+      }
+    });
+  });
+  if(dsCount>0) console.log('✅ 已修复',dsCount,'个材质为双面渲染');
+
+  // --- 加深彩色材质（粉/黄太淡）---
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat) return;
+    const mats=Array.isArray(mat)?mat:[mat];
+    mats.forEach(m=>{
+      const name=m.name||'';
+      if(name==='Color_L01'){          // 粉色 [1,0.8,0.898] → [1,0.5,0.65]
+        m.color.setRGB(1.0, 0.5, 0.65);
+        m.needsUpdate=true;
+      }else if(name==='Color_E01'){    // 黄色 [1,1,0.8] → [1,0.88,0.35]
+        m.color.setRGB(1.0, 0.88, 0.35);
+        m.needsUpdate=true;
+      }
+    });
+  });
+
   // --- 为白色模型生成边缘线（增强边界可见性）---
   model.traverse(child=>{
     if(!child.isMesh) return;
@@ -201,13 +255,14 @@ async function init(){
   // --- 动画 ---
   if(gltf.animations&&gltf.animations.length>0){
     mixer=new THREE.AnimationMixer(model);
-    action=mixer.clipAction(gltf.animations[0]);
+    const clip=gltf.animations[0];
+    action=mixer.clipAction(clip);
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished=true;
     action.play();
     action.paused=true;
-    animDuration=action.getClip().duration;
-    console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
+    animDuration=getMotionEnd(clip);
+    console.log('🎬 动画已加载，clip时长:', clip.duration.toFixed(2)+'s，有效时长:', animDuration.toFixed(2)+'s');
   }else{
     console.warn('⚠️ 模型没有内置动画');
     tip.textContent='模型无动画，请检查C4D导出设置';

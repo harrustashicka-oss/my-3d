@@ -22,6 +22,18 @@
   .title-bar.hide{opacity:0}
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .scene-name{margin-top:14px;text-align:center;color:#fff;font-size:32px;
+    font-weight:600;letter-spacing:10px;padding-left:10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.65);pointer-events:none;
+    opacity:0;transform:translateY(-10px);
+    transition:opacity .7s ease, transform .7s ease}
+  .scene-name.show{opacity:1;transform:translateY(0)}
+  .scene-name.pulse{animation:scenePulse 1.2s ease}
+  @keyframes scenePulse{
+    0%{transform:translateY(0) scale(1)}
+    30%{transform:translateY(0) scale(1.08)}
+    100%{transform:translateY(0) scale(1)}
+  }
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5;text-align:center}
   .tip{font-size:14px;opacity:.95}
@@ -51,13 +63,14 @@
 
 <div class="title-bar" id="titleBar">
   <div class="title-main">寻她</div>
-  <div class="title-sub" id="titleSub">点击屏幕展开模型</div>
+  <div class="title-sub" id="titleSub">点击屏幕：Group1 抬升</div>
+  <div class="scene-name" id="sceneName"></div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">&#128266;</button>
 </div>
 <div class="bottom-bar">
-  <div class="tip" id="tip">点击屏幕：展开 / 收回</div>
+  <div class="tip" id="tip">点击屏幕依次抬升 / 落回各部件组</div>
 </div>
 
 <div class="loading" id="loading">
@@ -77,11 +90,12 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const titleBar=document.getElementById('titleBar'),
       titleSub=document.getElementById('titleSub'),
+      sceneName=document.getElementById('sceneName'),
       tip=document.getElementById('tip'),
       loading=document.getElementById('loading'),
       loadTxt=document.getElementById('loadTxt'),
@@ -99,7 +113,7 @@ renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.shadowMap.radius=8;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.0;
+renderer.toneMappingExposure=0.75;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 const scene=new THREE.Scene();
@@ -117,10 +131,10 @@ dirLight.shadow.blurSamples=25;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const ambLight=new THREE.AmbientLight(0xffffff, 0.25);
+const ambLight=new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambLight);
 
-// ── 控制器（优化平移 + 缩放体验）──
+// ── 控制器 ──
 const controls=new OrbitControls(camera, canvas);
 controls.enableDamping=true;
 controls.dampingFactor=0.08;
@@ -141,17 +155,78 @@ loadingManager.onProgress=(url, loaded, total)=>{
 };
 
 // ── 加载模型 ──
-const loader=new FBXLoader(loadingManager);
-let model=null, mixer=null, action=null, animDuration=0;
-let state='closed';
-let wasRotating=false;
+const loader=new GLTFLoader(loadingManager);
+let model=null;
+let group1=null, group2=null, group3=null;
+let liftHeight1=0, liftHeight2=0, liftHeight3=0;
+
+// ── 点击序列状态机 ──
+// 0: Group1 待抬升  1: Group1 待落回
+// 2: Group2 待抬升  3: Group2 待落回
+// 4: Group3 待抬升  5: Group3 待落回
+let stepIndex=0;
+let isAnimating=false;
+
+// 每步的提示文案
+const stepTips=[
+  '点击屏幕：Group1 抬升',
+  '点击屏幕：Group1 落回',
+  '点击屏幕：Group2 抬升',
+  '点击屏幕：Group2 落回',
+  '点击屏幕：Group3 抬升',
+  '点击屏幕：Group3 落回',
+];
+
+// 各部件组对应的标题名称（Group1/2/3 在升降动画期间显示）
+const sceneNames=['叠嶂园', '琴雨亭', '阑珊台'];
+
+function showSceneName(groupIdx){
+  sceneName.textContent=sceneNames[groupIdx];
+  sceneName.classList.add('show');
+  // 重新触发脉冲动画
+  sceneName.classList.remove('pulse');
+  void sceneName.offsetWidth;
+  sceneName.classList.add('pulse');
+}
+
+// ── Tween 系统 ──
+let activeTween=null;
+
+function easeInOutCubic(t){
+  return t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+}
+
+function startTween(target, propName, endVal, duration, onComplete){
+  const startVal=target[propName];
+  activeTween={
+    target, propName, startVal, endVal, duration,
+    elapsed:0, onComplete
+  };
+  isAnimating=true;
+}
+
+function updateTween(delta){
+  if(!activeTween) return;
+  activeTween.elapsed += delta;
+  let t=activeTween.elapsed / activeTween.duration;
+  if(t>=1) t=1;
+  const eased=easeInOutCubic(t);
+  activeTween.target[activeTween.propName] =
+    activeTween.startVal + (activeTween.endVal - activeTween.startVal) * eased;
+  if(t>=1){
+    const cb=activeTween.onComplete;
+    activeTween=null;
+    isAnimating=false;
+    if(cb) cb();
+  }
+}
 
 async function init(){
-  const fbx=await loader.loadAsync('models/model.fbx');
-  model=fbx;
+  const gltf=await loader.loadAsync('models/Model.glb');
+  model=gltf.scene;
 
-  // --- 修复玻璃/透明材质 ---
-  let glassCount=0;
+  // --- 修复玻璃/透明材质 + 强制双面 ---
+  let glassCount=0, dsCount=0;
   model.traverse(child=>{
     if(!child.isMesh) return;
     child.castShadow=true;
@@ -160,13 +235,25 @@ async function init(){
     if(!mat) return;
     const mats=Array.isArray(mat)?mat:[mat];
     mats.forEach(m=>{
+      // 强制双面
+      if(!m.doubleSided){
+        m.doubleSided=true;
+        m.needsUpdate=true;
+        dsCount++;
+      }
       const name=(m.name||'').toLowerCase();
       const isGlass=name.includes('glass')||name.includes('透明')||
                      name.includes('玻璃')||name.includes('window')||
                      name.includes('win_')||name.includes('transp');
+      const isWater=name.includes('water');
       if(m.isMeshPhysicalMaterial&&m.transmission>0){
         m.transparent=true;
         m.opacity=Math.min(m.opacity||1, 0.35);
+        m.depthWrite=false;
+        m.needsUpdate=true;
+        glassCount++;
+      }else if(isWater){
+        m.transparent=true;
         m.depthWrite=false;
         m.needsUpdate=true;
         glassCount++;
@@ -180,9 +267,10 @@ async function init(){
       }
     });
   });
-  if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃材质');
+  if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃/水材质');
+  if(dsCount>0) console.log('✅ 已修复',dsCount,'个材质为双面渲染');
 
-  // --- 为白色模型生成边缘线（增强边界可见性）---
+  // --- 为白色模型生成边缘线 ---
   model.traverse(child=>{
     if(!child.isMesh) return;
     const mat=child.material;
@@ -197,20 +285,43 @@ async function init(){
     }
   });
 
-  // --- 动画 ---
-  if(fbx.animations&&fbx.animations.length>0){
-    mixer=new THREE.AnimationMixer(model);
-    action=mixer.clipAction(fbx.animations[0]);
-    action.setLoop(THREE.LoopOnce, 1);
-    action.clampWhenFinished=true;
-    action.play();
-    action.paused=true;
-    animDuration=action.getClip().duration;
-    console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
-  }else{
-    console.warn('⚠️ 模型没有内置动画');
-    tip.textContent='模型无动画，请检查导出设置';
+  // --- 查找 Group1 / Group2 / Group3 ---
+  // GLB 结构有两种：
+  //   新模型：gltf.scene 直接含 Group1/Group2/Group3/__1（无 "Model" 包装）
+  //   旧模型：gltf.scene → "Model" → Group1/Group2/Group3/__1
+  // Group2/Group3 各有重名嵌套子节点，必须取根级（parent 为 scene 或 "Model"）那一个
+  let groupParent=model;
+  model.children.forEach(c=>{ if(c.name==='Model') groupParent=c; });
+  groupParent.children.forEach(c=>{
+    if(c.name==='Group1') group1=c;
+    else if(c.name==='Group2') group2=c;
+    else if(c.name==='Group3') group3=c;
+  });
+  // 兜底：遍历查找 parent 为 groupParent/model 的根级 Group（避免误取嵌套同名节点）
+  if(!group1||!group2||!group3){
+    model.traverse(c=>{
+      const isRoot = (c.parent===groupParent || c.parent===model);
+      if(isRoot){
+        if(c.name==='Group1' && !group1) group1=c;
+        else if(c.name==='Group2' && !group2) group2=c;
+        else if(c.name==='Group3' && !group3) group3=c;
+      }
+    });
   }
+
+  console.log('Group1:', group1?.name, 'Group2:', group2?.name, 'Group3:', group3?.name);
+
+  // --- 计算各组的抬升高度（基于包围盒 Y 尺寸）---
+  function computeLift(group){
+    if(!group) return 0;
+    const box=new THREE.Box3().setFromObject(group);
+    const size=box.getSize(new THREE.Vector3());
+    return Math.max(size.y * 1.8, 0.05); // 抬升自身高度的1.8倍，最小0.05
+  }
+  liftHeight1=computeLift(group1);
+  liftHeight2=computeLift(group2);
+  liftHeight3=computeLift(group3);
+  console.log('lift heights:', liftHeight1.toFixed(4), liftHeight2.toFixed(4), liftHeight3.toFixed(4));
 
   scene.add(model);
   setupCamera(model);
@@ -265,25 +376,7 @@ const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const delta=clock.getDelta();
-  if(mixer) mixer.update(delta);
-
-  if(action&&state==='opening'&&action.time>=animDuration-0.05){
-    state='open';
-    controls.autoRotate=wasRotating;
-    titleSub.textContent='模型已展开';
-    tip.textContent='点击屏幕：收回模型';
-    titleBar.classList.remove('hide');
-  }
-  if(action&&state==='closing'&&action.time<=0.05){
-    action.paused=true;
-    action.time=0;
-    state='closed';
-    controls.autoRotate=wasRotating;
-    titleSub.textContent='点击屏幕展开模型';
-    tip.textContent='点击屏幕：展开 / 收回';
-    titleBar.classList.remove('hide');
-  }
-
+  updateTween(delta);
   controls.update();
   renderer.render(scene, camera);
 }
@@ -297,42 +390,83 @@ enterMask.addEventListener('click',()=>{
   bgm.play().catch(()=>{});
 });
 
-// ── 展开 / 收回 ──
-function toggleModel(){
-  if(!action||!entered) return;
+// ── 点击序列处理 ──
+function handleClick(){
+  if(!entered || isAnimating) return;
 
-  if(state==='closed'){
-    state='opening';
-    titleBar.classList.add('hide');
-    wasRotating=controls.autoRotate;
-    controls.autoRotate=false;
-    action.paused=false;
-    action.timeScale=1;
-    action.reset();
-    action.play();
-    titleSub.textContent='模型展开中…';
-    tip.textContent='展开中…';
+  const step=stepIndex % 6;
+  const animDuration=1.2; // 每次动画1.2秒
+  const wasRotating=controls.autoRotate;
+  controls.autoRotate=false;
+
+  if(step===0){
+    // Group1 抬升
+    showSceneName(0); // 叠嶂园
+    startTween(group1.position, 'y', liftHeight1, animDuration, ()=>{
+      stepIndex=1;
+      titleSub.textContent=stepTips[1];
+      tip.textContent='Group1 已抬升';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group1 抬升中…';
+    tip.textContent='抬升中…';
   }
-  else if(state==='open'||state==='opening'){
-    const wasFullyOpen=(state==='open'||action.time>=animDuration-0.05);
-    state='closing';
-    titleBar.classList.add('hide');
-    wasRotating=controls.autoRotate;
-    controls.autoRotate=false;
-
-    if(wasFullyOpen){
-      action.stop();
-      action.reset();
-      action.time=animDuration;
-      action.timeScale=-1;
-      action.paused=false;
-      action.play();
-    }else{
-      action.timeScale=-1;
-      action.paused=false;
-    }
-    titleSub.textContent='模型收回中…';
-    tip.textContent='收回中…';
+  else if(step===1){
+    // Group1 落回
+    startTween(group1.position, 'y', 0, animDuration, ()=>{
+      stepIndex=2;
+      titleSub.textContent=stepTips[2];
+      tip.textContent='Group1 已落回';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group1 落回中…';
+    tip.textContent='落回中…';
+  }
+  else if(step===2){
+    // Group2 抬升
+    showSceneName(1); // 琴雨亭
+    startTween(group2.position, 'y', liftHeight2, animDuration, ()=>{
+      stepIndex=3;
+      titleSub.textContent=stepTips[3];
+      tip.textContent='Group2 已抬升';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group2 抬升中…';
+    tip.textContent='抬升中…';
+  }
+  else if(step===3){
+    // Group2 落回
+    startTween(group2.position, 'y', 0, animDuration, ()=>{
+      stepIndex=4;
+      titleSub.textContent=stepTips[4];
+      tip.textContent='Group2 已落回';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group2 落回中…';
+    tip.textContent='落回中…';
+  }
+  else if(step===4){
+    // Group3 抬升
+    showSceneName(2); // 阑珊台
+    startTween(group3.position, 'y', liftHeight3, animDuration, ()=>{
+      stepIndex=5;
+      titleSub.textContent=stepTips[5];
+      tip.textContent='Group3 已抬升';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group3 抬升中…';
+    tip.textContent='抬升中…';
+  }
+  else if(step===5){
+    // Group3 落回
+    startTween(group3.position, 'y', 0, animDuration, ()=>{
+      stepIndex=0;
+      titleSub.textContent=stepTips[0];
+      tip.textContent='Group3 已落回，循环重置';
+      controls.autoRotate=wasRotating;
+    });
+    titleSub.textContent='Group3 落回中…';
+    tip.textContent='落回中…';
   }
 }
 
@@ -346,14 +480,8 @@ canvas.addEventListener('pointerup', e=>{
   const dy=Math.abs(e.clientY-downY);
   const dt=Date.now()-downT;
   if(dx<12 && dy<12 && dt<800){
-    toggleModel();
+    handleClick();
   }
-});
-
-muteBtn.addEventListener('click', e=>{
-  e.stopPropagation();
-  if(bgm.paused){ bgm.play().catch(()=>{}); muteBtn.textContent='\u{1F50A}'; }
-  else{ bgm.pause(); muteBtn.textContent='\u{1F507}'; }
 });
 
 muteBtn.addEventListener('click', e=>{

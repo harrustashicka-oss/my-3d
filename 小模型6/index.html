@@ -100,7 +100,7 @@ renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.shadowMap.radius=8;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.0;
+renderer.toneMappingExposure=0.75;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 const scene=new THREE.Scene();
@@ -118,7 +118,7 @@ dirLight.shadow.blurSamples=25;
 scene.add(dirLight);
 scene.add(dirLight.target);
 
-const ambLight=new THREE.AmbientLight(0xffffff, 0.25);
+const ambLight=new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambLight);
 
 // ── 控制器（优化平移 + 缩放体验）──
@@ -147,8 +147,24 @@ let model=null, mixer=null, action=null, animDuration=0;
 let state='closed';
 let wasRotating=false;
 
+function getMotionEnd(clip){
+  const tracks=clip.tracks;
+  if(!tracks||tracks.length===0) return clip.duration;
+  const mixer2=new THREE.AnimationMixer(new THREE.Object3D());
+  const action2=mixer2.clipAction(clip);
+  action2.play();
+  let maxTime=0;
+  const steps=60;
+  const dt=clip.duration/steps;
+  for(let i=0;i<=steps;i++){
+    mixer2.update(dt);
+    if(!action2.paused) maxTime=action2.time;
+  }
+  return maxTime>0?maxTime:clip.duration;
+}
+
 async function init(){
-  const gltf=await loader.loadAsync('models/Model.gltf');
+  const gltf=await loader.loadAsync('models/Model.glb');
   model=gltf.scene;
 
   // --- 修复玻璃/透明材质 ---
@@ -183,6 +199,23 @@ async function init(){
   });
   if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃材质');
 
+  // --- C4D导出修复：强制双面渲染 ---
+  let dsCount=0;
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat) return;
+    const mats=Array.isArray(mat)?mat:[mat];
+    mats.forEach(m=>{
+      if(!m.doubleSided){
+        m.doubleSided=true;
+        m.needsUpdate=true;
+        dsCount++;
+      }
+    });
+  });
+  if(dsCount>0) console.log('✅ 已修复',dsCount,'个材质为双面渲染');
+
   // --- 为白色模型生成边缘线（增强边界可见性）---
   model.traverse(child=>{
     if(!child.isMesh) return;
@@ -206,7 +239,7 @@ async function init(){
     action.clampWhenFinished=true;
     action.play();
     action.paused=true;
-    animDuration=action.getClip().duration;
+    animDuration=getMotionEnd(gltf.animations[0]);
     console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
   }else{
     console.warn('⚠️ 模型没有内置动画');

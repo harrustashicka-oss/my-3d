@@ -55,7 +55,11 @@ function serveFile(req, res) {
     let ext = path.extname(filePath).toLowerCase();
     let contentType = MIME_TYPES[ext] || 'application/octet-stream';
     
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': stat.size,
+      'Accept-Ranges': 'bytes'
+    });
     fs.createReadStream(filePath).pipe(res);
   });
 }
