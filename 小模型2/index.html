@@ -198,10 +198,61 @@ async function init(){
     }
   });
 
+  // --- 修复散开的模型部件（Mesh1 子节点应拼成整体）---
+  const mesh1Node = model.children.find(c => c.name === 'Mesh1');
+  if (mesh1Node) {
+    const parts = [];
+    mesh1Node.traverse(child => {
+      if (child.isMesh) parts.push(child);
+    });
+    if (parts.length > 1) {
+      // 计算所有部件的世界坐标中心
+      const groupCenter = new THREE.Vector3();
+      parts.forEach(p => {
+        const wp = new THREE.Vector3();
+        p.getWorldPosition(wp);
+        groupCenter.add(wp);
+      });
+      groupCenter.divideScalar(parts.length);
+      // 将每个子部件从 Mesh1 移到 model 根级（逃开 Mesh1 的 Z=75.5 偏移），
+      // 并叠放到 groupCenter 处形成紧凑整体
+      parts.forEach((p, i) => {
+        mesh1Node.remove(p);
+        model.add(p);
+        p.position.set(
+          groupCenter.x,
+          groupCenter.y,
+          groupCenter.z + i * 0.05  // 微小层叠偏移，视觉上有厚度感
+        );
+        p.rotation.set(0, 0, 0);
+        p.scale.set(1, 1, 1);
+      });
+      console.log('✅ 已拼合', parts.length, '个散开部件 →', groupCenter.toArray().map(v=>v.toFixed(1)));
+    }
+  }
+
   // --- 动画 ---
   if(gltf.animations&&gltf.animations.length>0){
     mixer=new THREE.AnimationMixer(model);
     action=mixer.clipAction(gltf.animations[0]);
+    // 修复损坏动画：过滤掉 scale→(0,0,0) 的通道，防止模型消失
+    const origTracks = action.getClip().tracks;
+    const goodTracks = origTracks.filter(t => {
+      if (t.name.includes('.scale')) {
+        // 检查是否全为 0（损坏）
+        const vals = t.values;
+        let allZero = true;
+        for (let j = 0; j < vals.length; j++) { if (vals[j] !== 0) { allZero = false; break; } }
+        return !allZero;
+      }
+      return true;
+    });
+    if (goodTracks.length < origTracks.length) {
+      const fixedClip = new THREE.AnimationClip('fixed', animDuration || 1, goodTracks);
+      action.reset().stop();
+      action = mixer.clipAction(fixedClip);
+      console.log('⚠️ 过滤了', origTracks.length - goodTracks.length, '条损坏动画轨道(scale=0)');
+    }
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished=true;
     action.play();
