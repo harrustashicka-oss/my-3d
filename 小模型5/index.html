@@ -240,10 +240,18 @@ function setupCamera(model){
 
   dirLight.position.set(center.x+size.x*0.8, center.y+size.y*1.5, center.z+size.z*0.6);
   dirLight.target.position.copy(center);
-  dirLight.shadow.camera.left=-maxDim; dirLight.shadow.camera.right=maxDim;
-  dirLight.shadow.camera.top=maxDim; dirLight.shadow.camera.bottom=-maxDim;
-  dirLight.shadow.camera.near=0.1; dirLight.shadow.camera.far=maxDim*5;
+  // 阴影相机范围略放宽，防止展开/收回动画中部件移出视锥导致阴影忽有忽无
+  const lightDist=dirLight.position.distanceTo(center);
+  const sRange=maxDim*1.2;
+  dirLight.shadow.camera.left=-sRange; dirLight.shadow.camera.right=sRange;
+  dirLight.shadow.camera.top=sRange; dirLight.shadow.camera.bottom=-sRange;
+  // 关键：near/far 贴合“光源→场景”的真实距离，避免深度精度被浪费在极小区间（投影闪烁主因）
+  dirLight.shadow.camera.near=Math.max(lightDist-maxDim*2, 0.1);
+  dirLight.shadow.camera.far=lightDist+maxDim*2;
   dirLight.shadow.camera.updateProjectionMatrix();
+  // 自适应法线偏移：消除平整表面自阴影产生的粉刺/闪烁
+  dirLight.shadow.normalBias=maxDim*0.0015;
+  dirLight.shadow.bias=-0.0003;
 
   const ground=new THREE.Mesh(
     new THREE.PlaneGeometry(maxDim*10, maxDim*10),
