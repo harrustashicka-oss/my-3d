@@ -15,9 +15,7 @@
   .card{display:flex;flex-direction:column;align-items:center;text-decoration:none;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:30px 22px 24px;transition:all .3s ease;backdrop-filter:blur(6px);cursor:pointer}
   .card:hover{background:rgba(255,255,255,.12);border-color:rgba(255,210,74,.4);transform:translateY(-4px)}
   .card .icon{font-size:40px;margin-bottom:14px}
-  .card .icon img{width:80px;height:auto;border-radius:8px}
-  .card .icon.icon-lg img{width:112px}
-  .card .icon.icon-xl img{width:132px}
+  .card .icon img{width:96px;height:96px;object-fit:contain;border-radius:8px}
   .card .name{font-size:20px;font-weight:600;margin-bottom:6px;letter-spacing:1px}
   .card .desc{font-size:13px;opacity:.6;text-align:center;line-height:1.5;margin-bottom:16px}
   .card .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -41,13 +39,13 @@
 <script>
 const BASE_URL = 'https://harrustashicka-oss.github.io/my-3d';
 const models = [
-  { name: '屏障世界', path: '屏障世界', icon: '🏯', iconImg: 'icons/pingzhang.jpg', iconLg: true, desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
-  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', iconImg: 'icons/wulin.jpg', iconLg: true, desc: '空间搭建交互动画演示' },
-  { name: '墨香斗影', path: '斗拱',     icon: '🏛️', iconImg: 'icons/moxiang.jpg', iconLg: true, desc: '8 步搭建动画' },
+  { name: '屏障世界', path: '屏障世界', icon: '🏯', iconImg: 'icons/pingzhang.jpg', desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
+  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', iconImg: 'icons/wulin.jpg', desc: '空间搭建交互动画演示' },
+  { name: '墨香斗影', path: '斗拱',     icon: '🏛️', iconImg: 'icons/moxiang.jpg', desc: '8 步搭建动画' },
   { name: '洞石鹤庭',  path: '洞石鹤庭', icon: '🏺', iconImg: 'icons/dongshi.jpg', desc: '瘦、皱、透、漏<br>空间搭建交互动画演示' },
-  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', iconImg: 'icons/dushan.jpg', iconLg: true, desc: '3 组建升交互演示' },
-  { name: '解字游园',  path: '解字游园', icon: '🎋', iconImg: 'icons/jiezi.jpg', iconXl: true, desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
-  { name: '小模型5',  path: '小模型5', icon: '🪨', iconImg: 'icons/xiaomo.jpg', iconLg: true, desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', iconImg: 'icons/dushan.jpg', desc: '3 组建升交互演示' },
+  { name: '解字游园',  path: '解字游园', icon: '🎋', iconImg: 'icons/jiezi.jpg', desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
+  { name: '小模型5',  path: '小模型5', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型1',  path: '小模型1', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型2',  path: '小模型2', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型3',  path: '小模型3', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
@@ -56,8 +54,8 @@ const models = [
   { name: '小模型7',  path: '小模型7', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
   { name: '小模型8',  path: '小模型8', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
 
-  { name: '寻她',    path: '寻她',   icon: '🏛️', iconImg: 'icons/xunta.jpg', iconLg: true, desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '隐叹红楼', path: '隐叹红楼', icon: '🏛️', iconImg: 'icons/yintan.jpg', iconLg: true, desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '寻她',    path: '寻她',   icon: '🏛️', iconImg: 'icons/xunta.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '隐叹红楼', path: '隐叹红楼', icon: '🏛️', iconImg: 'icons/yintan.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
 ];
 
 const grid = document.getElementById('grid');
@@ -73,7 +71,7 @@ function createCard(m) {
   card.href = m.path + '/index.html';
   
   const icon = document.createElement('div');
-  icon.className = 'icon' + (m.iconXl ? ' icon-xl' : (m.iconLg ? ' icon-lg' : ''));
+  icon.className = 'icon';
   if (m.iconImg) {
     const img = document.createElement('img');
     img.src = m.iconImg;
