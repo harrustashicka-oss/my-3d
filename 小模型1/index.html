@@ -148,7 +148,7 @@ let state='closed';
 let wasRotating=false;
 
 async function init(){
-  const gltf=await loader.loadAsync('models/Model.gltf');
+  const gltf=await loader.loadAsync('models/Model.glb');
   model=gltf.scene;
 
   // --- 修复玻璃/透明材质 ---
