@@ -285,11 +285,12 @@ async function init() {
       }
     });
 
-    // Color1 / Color3 材质网格在最后一步一起抬升（含自身子对象 EdgeLines）
+    // Color1 / Color3 材质网格在最后一步一起抬升
+    // 注：不递归收集子对象(EdgeLines等)，因为它们作为 child 挂载在父 Mesh 下，
+    //   抬升父 Mesh 时子对象会自动跟随；若也加入 liftMeshes 会导致双重抬升（父移+自身移=飘到天上）
     if (isColor1 || isColor3) {
       liftMeshes.push(child);
       child.userData.baseY = child.position.y;
-      collectLiftChildren(child);
     }
   });
 
