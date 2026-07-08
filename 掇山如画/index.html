@@ -98,7 +98,8 @@ const titleBar=document.getElementById('titleBar'),
       enterMask=document.getElementById('enterMask'),
       bgm=document.getElementById('bgm'),
       muteBtn=document.getElementById('muteBtn'),
-      progressDots=document.querySelectorAll('#progress .dot');
+      progressDots=document.querySelectorAll('#progress .dot'),
+      titleMain=document.querySelector('.title-main');
 
 const canvas=document.getElementById('canvas');
 const renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
@@ -152,6 +153,7 @@ const loader=new GLTFLoader(loadingManager);
 // ── 状态机 ──
 // 每组4个阶段: rise → explode → implode → fall
 const PHASES=['上升', '散开', '收回', '下落'];
+const GROUP_RISE_TITLES=['行迷','将至','望远']; // 三组上升时显示的诗意标题
 let groups=[];        // 3个Group对象
 let groupData=[];     // 每个Group的动画数据
 let currentGroup=0;   // 当前操作的Group索引 (0-2)
@@ -339,7 +341,13 @@ function doPhase(groupIdx, phase){
   const data=groupData[groupIdx];
   const wasRotating=controls.autoRotate;
   controls.autoRotate=false;
-  titleBar.classList.add('hide');
+  if(phase===0){
+    // 上升阶段：显示对应诗意的标题（行迷 / 将至 / 望远）
+    titleMain.textContent=GROUP_RISE_TITLES[groupIdx]||'掇山如画';
+    titleBar.classList.remove('hide');
+  }else{
+    titleBar.classList.add('hide');
+  }
 
   if(phase===0){
     // ▲ 上升
@@ -553,7 +561,11 @@ function handleClick(){
 
   if(currentPhase<4){
     const gName='第'+(currentGroup+1)+'组';
-    titleSub.textContent=gName+' · '+PHASES[currentPhase]+'中…';
+    if(currentPhase===0){
+      titleSub.textContent=''; // 上升阶段只显示诗意主标题
+    }else{
+      titleSub.textContent=gName+' · '+PHASES[currentPhase]+'中…';
+    }
     tip.textContent=gName+PHASES[currentPhase]+'中…';
 
     doPhase(currentGroup, currentPhase);
@@ -569,6 +581,7 @@ function handleClick(){
 function updateTip(text){
   tip.textContent=text;
   titleSub.textContent='第'+(currentGroup+1)+'组 / 共3组';
+  titleMain.textContent='掇山如画';
 }
 
 function updateProgress(doneIdx){
