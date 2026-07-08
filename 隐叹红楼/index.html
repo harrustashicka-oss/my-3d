@@ -72,6 +72,8 @@
   </div>
 </div>
 
+<audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
+
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -85,7 +87,8 @@ const titleBar=document.getElementById('titleBar'),
       loadTxt=document.getElementById('loadTxt'),
       barFill=document.getElementById('barFill'),
       enterMask=document.getElementById('enterMask'),
-      muteBtn=document.getElementById('muteBtn');
+      muteBtn=document.getElementById('muteBtn'),
+      bgm=document.getElementById('bgm');
 
 const canvas=document.getElementById('canvas');
 const renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:false });
@@ -290,6 +293,8 @@ let entered=false;
 enterMask.addEventListener('click',()=>{
   enterMask.classList.add('hide');
   entered=true;
+  bgm.volume=0.4;
+  bgm.play().catch(()=>{});
 });
 
 // ── 展开 / 收回 ──
@@ -343,6 +348,12 @@ canvas.addEventListener('pointerup', e=>{
   if(dx<12 && dy<12 && dt<800){
     toggleModel();
   }
+});
+
+muteBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(bgm.paused){ bgm.play().catch(()=>{}); muteBtn.textContent='\u{1F50A}'; }
+  else{ bgm.pause(); muteBtn.textContent='\u{1F507}'; }
 });
 
 muteBtn.addEventListener('click', e=>{
