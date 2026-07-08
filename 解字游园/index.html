@@ -186,6 +186,10 @@ let groupNodes = {};   // { Group1, Group2, Group3, Group4, gongxiang }
 let origPositions = {}; // 各节点原始位置
 let gongxiangFollows = null; // 当前 gongxiang 跟随的组名（'Group3' 或 'Group4' 或 null）
 
+/* ── 黑色模型（抬升用） ── */
+let blackMeshes = [];        // 所有材质接近黑色的网格
+let blackLifted = false;     // 是否已触发抬升，防止重复触发
+
 /* ══════════════════════════════════════════
    模型初始化
    ══════════════════════════════════════════ */
@@ -237,17 +241,30 @@ async function init() {
     }
 
     // 添加边缘线
-    const mat = child.material;
-    if (mat && !Array.isArray(mat) && mat.color) {
-      const col = mat.color;
-      const isLight = col.r > 0.7 && col.g > 0.7 && col.b > 0.7;
-      if (isLight) {
-        const edges = new THREE.EdgesGeometry(child.geometry, 20);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.7 });
-        const edgeLines = new THREE.LineSegments(edges, lineMat);
-        edgeLines.raycast = () => {};
-        child.add(edgeLines);
+    // 颜色相关：浅色加边缘线；黑色（接近黑）收集并调更黑
+    const matsArr = Array.isArray(child.material) ? child.material : [child.material];
+    let addedEdge = false;
+    let isBlackMesh = false;
+    matsArr.forEach(m => {
+      if (!m || !m.color) return;
+      const c = m.color;
+      if (c.r > 0.7 && c.g > 0.7 && c.b > 0.7) {
+        if (!addedEdge) {
+          const edges = new THREE.EdgesGeometry(child.geometry, 20);
+          const lineMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.7 });
+          const edgeLines = new THREE.LineSegments(edges, lineMat);
+          edgeLines.raycast = () => {};
+          child.add(edgeLines);
+          addedEdge = true;
+        }
+      } else if (c.r < 0.3 && c.g < 0.3 && c.b < 0.3) {
+        isBlackMesh = true;
+        c.setHex(0x0a0a0a); // 原为 0.1176 深灰，再黑一点
       }
+    });
+    if (isBlackMesh) {
+      blackMeshes.push(child);
+      child.userData.baseY = child.position.y;
     }
   });
 
@@ -328,6 +345,34 @@ function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
+}
+
+/* ══════════════════════════════════════════
+   黑色模型整体抬升（所有动画结束后触发）
+   ══════════════════════════════════════════ */
+function liftBlackModels() {
+  if (!blackMeshes.length) return;
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  const duration = 1200;
+  const startTime = performance.now();
+  const liftDist = maxDim * 0.2;
+  const starts = blackMeshes.map(m => m.position.y);
+
+  const tick = () => {
+    const t = Math.min((performance.now() - startTime) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+    blackMeshes.forEach((m, i) => {
+      m.position.y = starts[i] + liftDist * eased;
+    });
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      blackMeshes.forEach((m, i) => { m.position.y = starts[i] + liftDist; });
+      controls.autoRotate = wasRotating;
+    }
+  };
+  tick();
 }
 
 /* ══════════════════════════════════════════
@@ -462,6 +507,12 @@ function updateUI() {
   [...progress.children].forEach((d, i) => {
     d.className = 'dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
   });
+
+  // 所有动画（8步）全部结束后，触发黑色模型整体抬升一次
+  if (currentStep >= steps.length && !blackLifted && blackMeshes.length) {
+    blackLifted = true;
+    liftBlackModels();
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -505,6 +556,9 @@ function resetAll() {
   for (const [name, node] of Object.entries(groupNodes)) {
     node.position.copy(origPositions[name]);
   }
+  // 恢复黑色模型抬升
+  blackMeshes.forEach(m => { m.position.y = m.userData.baseY; });
+  blackLifted = false;
   updateUI();
 }
 
