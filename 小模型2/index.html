@@ -143,18 +143,9 @@ loadingManager.onProgress=(url, loaded, total)=>{
 
 // ── 加载模型 ──
 const loader=new GLTFLoader(loadingManager);
-let model=null;
+let model=null, mixer=null, action=null, animDuration=0;
 let state='closed';
 let wasRotating=false;
-
-// ── 自定义缓动动画（替代损坏的 glTF 动画）──
-const animParts = [];  // {mesh, homePos, explodePos}
-let tweenProgress = 0;   // 0=合拢(home) / 1=散开(explode)
-let tweenTarget = 0;     // 目标进度
-let tweening = false;    // 是否正在播放
-const TWEEN_DURATION = 1.8;  // 秒
-
-function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
 async function init(){
   const gltf=await loader.loadAsync('models/Model.gltf');
@@ -207,49 +198,19 @@ async function init(){
     }
   });
 
-  // --- 修复散开的模型部件 + 准备自定义动画数据 ---
-  const mesh1Node = model.children.find(c => c.name === 'Mesh1');
-  if (mesh1Node) {
-    const parts = [];
-    mesh1Node.traverse(child => {
-      if (child.isMesh) parts.push(child);
-    });
-    if (parts.length > 1) {
-      // 计算所有部件的世界坐标中心（合拢位置）
-      const groupCenter = new THREE.Vector3();
-      parts.forEach(p => {
-        const wp = new THREE.Vector3();
-        p.getWorldPosition(wp);
-        groupCenter.add(wp);
-      });
-      groupCenter.divideScalar(parts.length);
-
-      // 为每个部件设定：合拢位置(home) + 散开位置(explode)
-      parts.forEach((p, i) => {
-        const homePos = new THREE.Vector3(
-          groupCenter.x,
-          groupCenter.y,
-          groupCenter.z + i * 0.05
-        );
-        // 散开位置：从中心向外辐射，不同方向+距离
-        const angle = (i / parts.length) * Math.PI * 2;
-        const dist = 8 + i * 3;  // 越远的部件飞得越远
-        const explodePos = new THREE.Vector3(
-          groupCenter.x + Math.cos(angle) * dist,
-          groupCenter.y + 2 + i * 1.5,  // 向上散开
-          groupCenter.z + Math.sin(angle) * dist * 0.6
-        );
-
-        mesh1Node.remove(p);
-        model.add(p);
-        p.position.copy(homePos);
-        p.rotation.set(0, 0, 0);
-        p.scale.set(1, 1, 1);
-
-        animParts.push({ mesh: p, homePos, explodePos });
-      });
-      console.log('✅ 已拼合', parts.length, '个部件，准备自定义展开动画');
-    }
+  // --- 动画 ---
+  if(gltf.animations&&gltf.animations.length>0){
+    mixer=new THREE.AnimationMixer(model);
+    action=mixer.clipAction(gltf.animations[0]);
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished=true;
+    action.play();
+    action.paused=true;
+    animDuration=action.getClip().duration;
+    console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
+  }else{
+    console.warn('⚠️ 模型没有内置动画');
+    tip.textContent='模型无动画，请检查C4D导出设置';
   }
 
   scene.add(model);
@@ -306,37 +267,23 @@ const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const delta=clock.getDelta();
+  if(mixer) mixer.update(delta);
 
-  // ── 自定义缓动更新 ──
-  if (tweening) {
-    const speed = 1 / TWEEN_DURATION;
-    if (tweenTarget > tweenProgress) {
-      tweenProgress = Math.min(tweenProgress + delta * speed, tweenTarget);
-    } else if (tweenTarget < tweenProgress) {
-      tweenProgress = Math.max(tweenProgress - delta * speed, tweenTarget);
-    }
-    const t = easeInOutCubic(tweenProgress);
-    animParts.forEach(p => {
-      p.mesh.position.lerpVectors(p.homePos, p.explodePos, t);
-    });
-    // 检测是否到达目标
-    if (Math.abs(tweenProgress - tweenTarget) < 0.001) {
-      tweenProgress = tweenTarget;
-      tweening = false;
-      if (state === 'opening') {
-        state = 'open';
-        controls.autoRotate = wasRotating;
-        titleSub.textContent = '模型已展开';
-        tip.textContent = '点击屏幕：收回模型';
-        titleBar.classList.remove('hide');
-      } else if (state === 'closing') {
-        state = 'closed';
-        controls.autoRotate = wasRotating;
-        titleSub.textContent = '点击屏幕展开模型';
-        tip.textContent = '点击屏幕：展开 / 收回';
-        titleBar.classList.remove('hide');
-      }
-    }
+  if(action&&state==='opening'&&action.time>=animDuration-0.05){
+    state='open';
+    controls.autoRotate=wasRotating;
+    titleSub.textContent='模型已展开';
+    tip.textContent='点击屏幕：收回模型';
+    titleBar.classList.remove('hide');
+  }
+  if(action&&state==='closing'&&action.time<=0.05){
+    action.paused=true;
+    action.time=0;
+    state='closed';
+    controls.autoRotate=wasRotating;
+    titleSub.textContent='点击屏幕展开模型';
+    tip.textContent='点击屏幕：展开 / 收回';
+    titleBar.classList.remove('hide');
   }
 
   controls.update();
@@ -352,29 +299,44 @@ enterMask.addEventListener('click',()=>{
   bgm.play().catch(()=>{});
 });
 
-// ── 展开 / 收回（自定义缓动）──
+// ── 展开 / 收回 ──
 function toggleModel(){
-  if(!entered || animParts.length === 0) return;
+  if(!action||!entered) return;
 
   if(state==='closed'){
-    // 展开：从合拢位置飞散开
+    // 展开（正放）
     state='opening';
     titleBar.classList.add('hide');
     wasRotating=controls.autoRotate;
     controls.autoRotate=false;
-    tweenTarget = 1;
-    tweening = true;
+    action.paused=false;
+    action.timeScale=1;
+    action.reset();
+    action.play();
     titleSub.textContent='模型展开中…';
     tip.textContent='展开中…';
   }
   else if(state==='open'||state==='opening'){
-    // 收回：飞回合拢位置
+    // 收回（倒放）
+    const wasFullyOpen=(state==='open'||action.time>=animDuration-0.05);
     state='closing';
     titleBar.classList.add('hide');
     wasRotating=controls.autoRotate;
     controls.autoRotate=false;
-    tweenTarget = 0;
-    tweening = true;
+
+    if(wasFullyOpen){
+      // 已完全展开：stop → 重置 → 跳到末尾 → 倒放
+      action.stop();
+      action.reset();
+      action.time=animDuration;
+      action.timeScale=-1;
+      action.paused=false;
+      action.play();
+    }else{
+      // 展开中点击收回：直接倒放
+      action.timeScale=-1;
+      action.paused=false;
+    }
     titleSub.textContent='模型收回中…';
     tip.textContent='收回中…';
   }
