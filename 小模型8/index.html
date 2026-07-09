@@ -211,8 +211,8 @@ async function init(){
       if(!col) return;
       const hsl={h:0,s:0,l:0};
       col.getHSL(hsl);
-      if(hsl.l < 0.2){              // 亮度低于阈值视为"黑色材质"
-        col.multiplyScalar(0.3);    // 进一步压暗（比0.5更黑）
+      if(hsl.l < 0.35){             // 放宽阈值：覆盖深灰(M_0135_DarkGray l=32%，原0.2漏掉)
+        col.multiplyScalar(0.18);   // 压暗到与7一致的纯黑(~[15,15,15])
         m.envMapIntensity=0;        // 去掉环境反射，避免发灰
         if(m.metalness!==undefined) m.metalness=0;            // 去掉高光，避免黑里发亮
         if(m.roughness!==undefined) m.roughness=Math.max(m.roughness,0.9); // 哑光化，更纯黑

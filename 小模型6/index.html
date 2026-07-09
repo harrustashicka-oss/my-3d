@@ -278,14 +278,7 @@ function setupCamera(model){
   dirLight.shadow.camera.near=0.1; dirLight.shadow.camera.far=maxDim*5;
   dirLight.shadow.camera.updateProjectionMatrix();
 
-  const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(maxDim*10, maxDim*10),
-    new THREE.ShadowMaterial({ opacity:0.22 })
-  );
-  ground.rotation.x=-Math.PI/2;
-  ground.position.y=box.min.y;
-  ground.receiveShadow=true;
-  scene.add(ground);
+  // 地面投影已移除（按需求：去掉小模型6的地面阴影）
 
   // 底部补光
   const bottomLight=new THREE.DirectionalLight(0xffffff, 0.35);
