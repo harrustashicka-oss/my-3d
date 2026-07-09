@@ -199,6 +199,30 @@ async function init(){
   });
   if(glassCount>0) console.log('✅ 共处理',glassCount,'个玻璃材质');
 
+  // --- 加深黑色材质（去掉环境反射灰 + 进一步压暗）---
+  let blackCount=0;
+  model.traverse(child=>{
+    if(!child.isMesh) return;
+    const mat=child.material;
+    if(!mat) return;
+    const mats=Array.isArray(mat)?mat:[mat];
+    mats.forEach(m=>{
+      const col=m.color;
+      if(!col) return;
+      const hsl={h:0,s:0,l:0};
+      col.getHSL(hsl);
+      if(hsl.l < 0.2){              // 亮度低于阈值视为"黑色材质"
+        col.multiplyScalar(0.3);    // 进一步压暗（比0.5更黑）
+        m.envMapIntensity=0;        // 去掉环境反射，避免发灰
+        if(m.metalness!==undefined) m.metalness=0;            // 去掉高光，避免黑里发亮
+        if(m.roughness!==undefined) m.roughness=Math.max(m.roughness,0.9); // 哑光化，更纯黑
+        m.needsUpdate=true;
+        blackCount++;
+      }
+    });
+  });
+  if(blackCount>0) console.log('✅ 已加深',blackCount,'个黑色材质');
+
   // --- C4D导出修复：强制双面渲染 ---
   let dsCount=0;
   model.traverse(child=>{
@@ -239,7 +263,7 @@ async function init(){
     action.clampWhenFinished=true;
     action.play();
     action.paused=true;
-    animDuration=getMotionEnd(gltf.animations[0]);
+    animDuration=gltf.animations[0].duration;  // 真实动画时长（修复 getMotionEnd 回绕使时长被算成≈0.05 的 bug）
     console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
   }else{
     console.warn('⚠️ 模型没有内置动画');

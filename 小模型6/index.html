@@ -239,7 +239,7 @@ async function init(){
     action.clampWhenFinished=true;
     action.play();
     action.paused=true;
-    animDuration=getMotionEnd(gltf.animations[0]);
+    animDuration=gltf.animations[0].duration;  // 真实动画时长（修复 getMotionEnd 回绕使时长被算成≈0.05 的 bug）
     console.log('🎬 动画已加载，时长:', animDuration.toFixed(2)+'s');
   }else{
     console.warn('⚠️ 模型没有内置动画');
