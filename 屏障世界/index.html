@@ -60,7 +60,7 @@
 <canvas id="canvas"></canvas>
 
 <div class="title-bar" id="titleBar">
-  <div class="title-main" id="titleMain">屏障世界 · 底座</div>
+  <div class="title-main" id="titleMain">屏障世界</div>
   <div class="title-sub" id="titleSub">第 1 / 12 步</div>
   <div class="scene-name show" id="sceneName"></div>
 </div>
@@ -416,7 +416,7 @@ function goTo(next){
 }
 
 function updateUI(){
-  titleMain.textContent='屏障世界 · '+labels[index];
+  titleMain.textContent='屏障世界';
   titleSub.textContent='第 '+(index+1)+' / '+steps.length+' 步';
     sceneName.textContent = stepNames[index];
   [...progress.children].forEach((d,i)=>{

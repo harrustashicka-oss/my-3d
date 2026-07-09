@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>《设计专题（1）概念与空间》课程空间模型展示合集</title>
+<title>《设计专题（1）概念与空间》空间模型交互展示合集</title>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{min-height:100vh;background:#1a1a2e;color:#fff;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px}
-  h1{font-size:28px;font-weight:600;margin-bottom:6px;letter-spacing:2px;text-align:center;line-height:1.5}
+  h1{font-size:22px;font-weight:600;margin-bottom:6px;letter-spacing:2px;text-align:center;line-height:1.5}
+  h1 .sub-title{font-size:18px;display:block;margin-top:4px}
   .sub{font-size:14px;opacity:.6;margin-bottom:8px}
   .scan-tip{font-size:13px;opacity:.5;margin-bottom:40px;text-align:center;line-height:1.6}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:1000px;width:100%}
@@ -28,33 +29,33 @@
 </style>
 </head>
 <body>
-  <h1>《设计专题（1）概念与空间》<br>课程空间模型展示合集</h1>
+  <h1>《设计专题（1）概念与空间》<span class="sub-title">空间模型交互展示合集</span></h1>
   <p class="sub">点击卡片进入对应模型演示</p>
   <p class="scan-tip"> 手机扫码即可观看，无需连接同一 WiFi</p>
   <div class="grid" id="grid">
     <!-- JS 动态生成 -->
   </div>
-  <div class="footer">© 2026 · 课程空间模型展示合集</div>
+  <div class="footer">© 2026 · 空间模型交互展示合集</div>
 
 <script>
 const BASE_URL = 'https://harrustashicka-oss.github.io/my-3d';
 const models = [
-  { name: '屏障世界', path: '屏障世界', icon: '🏯', iconImg: 'icons/pingzhang.jpg', desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
-  { name: '卧林藏空', path: '卧林藏空', icon: '🏚️', iconImg: 'icons/wulin.jpg', desc: '空间搭建交互动画演示' },
-  { name: '墨香斗影', path: '斗拱',     icon: '🏛️', iconImg: 'icons/moxiang.jpg', desc: '8 步搭建动画' },
-  { name: '洞石鹤庭',  path: '洞石鹤庭', icon: '🏺', iconImg: 'icons/dongshi.jpg', desc: '瘦、皱、透、漏<br>空间搭建交互动画演示' },
-  { name: '掇山如画',  path: '掇山如画', icon: '🏔️', iconImg: 'icons/dushan.jpg', desc: '3 组建升交互演示' },
-  { name: '解字游园',  path: '解字游园', icon: '🎋', iconImg: 'icons/jiezi.jpg', desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
-  { name: '寻她',    path: '寻她',   icon: '🏛️', iconImg: 'icons/xunta.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '隐叹红楼', path: '隐叹红楼', icon: '🏛️', iconImg: 'icons/yintan.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型1',  path: '小模型1', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型2',  path: '小模型2', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型3',  path: '小模型3', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型4',  path: '小模型4', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型5',  path: '小模型5', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型6',  path: '小模型6', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型7',  path: '小模型7', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
-  { name: '小模型8',  path: '小模型8', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间转译·屏障世界', path: '屏障世界', icon: '🏯', iconImg: 'icons/pingzhang.jpg', desc: '12 步空间搭建<br>接 → 钉 → 转 → 安 → ... → 榫' },
+  { name: '空间转译·卧林藏空', path: '卧林藏空', icon: '🏚️', iconImg: 'icons/wulin.jpg', desc: '空间搭建交互动画演示' },
+  { name: '空间转译·墨香斗影', path: '斗拱',     icon: '🏛️', iconImg: 'icons/moxiang.jpg', desc: '8 步搭建动画' },
+  { name: '空间转译·洞石鹤庭',  path: '洞石鹤庭', icon: '🏺', iconImg: 'icons/dongshi.jpg', desc: '瘦、皱、透、漏<br>空间搭建交互动画演示' },
+  { name: '空间转译·掇山如画',  path: '掇山如画', icon: '🏔️', iconImg: 'icons/dushan.jpg', desc: '3 组建升交互演示' },
+  { name: '空间转译·解字游园',  path: '解字游园', icon: '🎋', iconImg: 'icons/jiezi.jpg', desc: '8 步交互动画<br>定 → 破 → 磨 → 风' },
+  { name: '空间转译·寻她',    path: '寻她',   icon: '🏛️', iconImg: 'icons/xunta.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间转译·隐叹红楼', path: '隐叹红楼', icon: '🏛️', iconImg: 'icons/yintan.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 壹',  path: '小模型1', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 贰',  path: '小模型2', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 叁',  path: '小模型3', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 肆',  path: '小模型4', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 伍',  path: '小模型5', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 陆',  path: '小模型6', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 柒',  path: '小模型7', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
+  { name: '空间操作·模型 捌',  path: '小模型8', icon: '🪨', iconImg: 'icons/xiaomo.jpg', desc: '空间搭建交互动画演示<br>点击展开 / 收回' },
 
 ];
 

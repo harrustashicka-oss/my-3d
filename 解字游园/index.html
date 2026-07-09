@@ -517,8 +517,8 @@ function updateUI() {
   titleMain.textContent = titlePrefix;
 
   if (currentStep < 0) {
-    titleSub.textContent = '准备就绪';
-    sceneName.textContent = '准备就绪';
+    titleSub.textContent = '';
+    sceneName.textContent = '';
     tip.textContent = '点击屏幕开始演示';
   } else if (currentStep >= steps.length) {
     titleSub.textContent = '演示完成';
