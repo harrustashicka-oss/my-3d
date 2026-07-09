@@ -388,6 +388,7 @@ function liftModels() {
   if (!liftMeshes.length) return;
   const wasRotating = controls.autoRotate;
   controls.autoRotate = false;
+  busy = true;
   const duration = 1200;
   const startTime = performance.now();
   const liftDist = maxDim * 0.2;
@@ -404,6 +405,39 @@ function liftModels() {
     } else {
       liftMeshes.forEach((m, i) => { m.position.y = starts[i] + liftDist; });
       controls.autoRotate = wasRotating;
+      busy = false;
+      updateUI();
+    }
+  };
+  tick();
+}
+
+/* 黑色模型平滑降下（抬升后再次点击触发，缓慢落回后再回到初始态准备下一轮） */
+function lowerModels() {
+  if (!liftMeshes.length) return;
+  const wasRotating = controls.autoRotate;
+  controls.autoRotate = false;
+  busy = true;
+  const duration = 1500;
+  const startTime = performance.now();
+  const starts = liftMeshes.map(m => m.position.y);
+  const targets = liftMeshes.map(m => m.userData.baseY);
+
+  const tick = () => {
+    const t = Math.min((performance.now() - startTime) / duration, 1);
+    const eased = t * t * (3 - 2 * t); // smoothstep 缓动，落下更柔和
+    liftMeshes.forEach((m, i) => {
+      m.position.y = starts[i] + (targets[i] - starts[i]) * eased;
+    });
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      liftMeshes.forEach((m, i) => { m.position.y = targets[i]; });
+      controls.autoRotate = wasRotating;
+      busy = false;
+      blackLifted = false;
+      currentStep = -1;
+      updateUI();
     }
   };
   tick();
@@ -541,9 +575,13 @@ function updateUI() {
     d.className = 'dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
   });
 
-  // 8步全部结束后提示点击抬升（不再自动触发）
-  if (currentStep >= steps.length && liftMeshes.length && !blackLifted) {
-    tip.textContent = '演示完成！点击屏幕抬升墨色笔画与白色边框';
+  // 8步全部结束后提示
+  if (currentStep >= steps.length) {
+    if (liftMeshes.length && !blackLifted) {
+      tip.textContent = '演示完成！点击屏幕抬升墨色笔画与白色边框';
+    } else {
+      tip.textContent = '演示完成！点击屏幕降下笔画并重新开始';
+    }
   }
 }
 
@@ -565,12 +603,12 @@ canvas.addEventListener('pointerup', e => {
       const step = steps[0];
       animateRise(step.group, step.shared);
     } else if (currentStep >= steps.length) {
-      // 全部完成：首次点击抬升，再次点击重置
+      // 全部完成：首次点击抬升，再次点击平滑降下并回到初始态
       if (!blackLifted) {
         blackLifted = true;
         liftModels();
       } else {
-        resetAll();
+        lowerModels();
       }
     } else {
       // 执行当前步骤
@@ -593,10 +631,8 @@ function resetAll() {
   for (const [name, node] of Object.entries(groupNodes)) {
     node.position.copy(origPositions[name]);
   }
-  // 恢复黑色模型及关联白色边框抬升
+  // 恢复黑色模型及关联白色边框到抬升前位置（保留 liftMeshes 列表，下一轮仍可抬升）
   liftMeshes.forEach(m => { m.position.y = m.userData.baseY; });
-  liftMeshes.forEach(m => { if (m.userData._liftTag) delete m.userData._liftTag; });
-  liftMeshes.length = 0;
   blackLifted = false;
   updateUI();
 }
