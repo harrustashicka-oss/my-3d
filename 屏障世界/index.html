@@ -22,6 +22,12 @@
   .title-bar.hide{opacity:0}
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .scene-name{margin-top:14px;text-align:center;color:#fff;font-size:32px;
+    font-weight:600;letter-spacing:10px;padding-left:10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.65);pointer-events:none;
+    opacity:0;transform:translateY(-10px);transition:opacity .35s ease,transform .35s ease}
+  .scene-name.show{opacity:1;transform:translateY(0)}
+  .title-bar.noleftsub .title-sub{display:none}
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
   .tip{font-size:14px;margin-bottom:12px;opacity:.95}
@@ -56,6 +62,7 @@
 <div class="title-bar" id="titleBar">
   <div class="title-main" id="titleMain">屏障世界 · 底座</div>
   <div class="title-sub" id="titleSub">第 1 / 12 步</div>
+  <div class="scene-name show" id="sceneName"></div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
@@ -98,6 +105,7 @@ const steps=[
   'models/PINGZHANGSHIJIE/11_ZHA.glb',
   'models/PINGZHANGSHIJIE/12_SUN.glb'
 ];
+const stepNames=['底座','接','钉','转','安','靠','悬','垂','压','拼','扎','榫']; // 每步居中动作字（04-12为推断，请核对）
 const labels=[
   '底座', '接', '钉', '转', '安', '靠',
   '悬', '垂', '压', '拼', '扎', '榫'
@@ -107,6 +115,7 @@ const labels=[
 const titleBar=document.getElementById('titleBar'),
       titleMain=document.getElementById('titleMain'),
       titleSub=document.getElementById('titleSub'),
+      sceneName = document.getElementById('sceneName'),
       tip=document.getElementById('tip'),
       progress=document.getElementById('progress'),
       loading=document.getElementById('loading'),
@@ -409,6 +418,7 @@ function goTo(next){
 function updateUI(){
   titleMain.textContent='屏障世界 · '+labels[index];
   titleSub.textContent='第 '+(index+1)+' / '+steps.length+' 步';
+    sceneName.textContent = stepNames[index];
   [...progress.children].forEach((d,i)=>{
     d.className='dot'+(i<index?' done':i===index?' active':'');
   });

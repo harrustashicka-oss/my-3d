@@ -22,6 +22,12 @@
   .title-bar.hide{opacity:0}
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .scene-name{margin-top:14px;text-align:center;color:#fff;font-size:32px;
+    font-weight:600;letter-spacing:10px;padding-left:10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.65);pointer-events:none;
+    opacity:0;transform:translateY(-10px);transition:opacity .35s ease,transform .35s ease}
+  .scene-name.show{opacity:1;transform:translateY(0)}
+  .title-bar.noleftsub .title-sub{display:none}
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
   .tip{font-size:14px;margin-bottom:12px;opacity:.95}
@@ -55,6 +61,7 @@
 <div class="title-bar" id="titleBar">
   <div class="title-main" id="titleMain">墨香斗影</div>
   <div class="title-sub" id="titleSub">第 1 / 8 步</div>
+  <div class="scene-name" id="sceneName"></div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
@@ -100,6 +107,7 @@ const componentArtNames = {
 const titleBar = document.getElementById('titleBar'),
       titleMain = document.getElementById('titleMain'),
       titleSub = document.getElementById('titleSub'),
+      sceneName = document.getElementById('sceneName'),
       tip = document.getElementById('tip'),
       progress = document.getElementById('progress'),
       loading = document.getElementById('loading'),
@@ -613,15 +621,19 @@ function resetAll() {
 
 /* ─ UI 更新 ── */
 function updateUI() {
-  // 飞出阶段显示艺术术语，搭建阶段只显示主标题
+  titleMain.textContent = titlePrefix;
+  titleSub.textContent = '第 ' + (index + 1) + ' / ' + labels.length + ' 步';
+
+  // 中间文字：1~8 步搭建阶段不显示；物体动画（飞出/收回）时显示对应艺术术语
   if (yellowPhase !== 'none' && yellowPhase !== 'done' && currentYellowIndex < yellowMeshes.length) {
     const compName = yellowMeshes[currentYellowIndex].object.name || '';
     const artName = componentArtNames[compName] || compName;
-    titleMain.textContent = titlePrefix + ' · ' + artName;
+    sceneName.textContent = artName;
+    sceneName.classList.add('show');
   } else {
-    titleMain.textContent = titlePrefix;
+    sceneName.textContent = '';
+    sceneName.classList.remove('show');
   }
-  titleSub.textContent = '第 ' + (index + 1) + ' / ' + labels.length + ' 步';
   [...progress.children].forEach((d, i) => {
     d.className = 'dot' + (i < index ? ' done' : i === index ? ' active' : '');
   });

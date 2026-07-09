@@ -22,6 +22,12 @@
   .title-bar.hide{opacity:0}
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .scene-name{margin-top:14px;text-align:center;color:#fff;font-size:32px;
+    font-weight:600;letter-spacing:10px;padding-left:10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.65);pointer-events:none;
+    opacity:0;transform:translateY(-10px);transition:opacity .35s ease,transform .35s ease}
+  .scene-name.show{opacity:1;transform:translateY(0)}
+  .title-bar.noleftsub .title-sub{display:none}
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5}
   .tip{font-size:14px;margin-bottom:12px;opacity:.95}
@@ -55,6 +61,7 @@
 <div class="title-bar" id="titleBar">
   <div class="title-main" id="titleMain">解字游园</div>
   <div class="title-sub" id="titleSub">第 1 / 8 步</div>
+  <div class="scene-name show" id="sceneName"></div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">🔊</button>
@@ -107,6 +114,7 @@ const riseTitleSuffix = {
 const titleBar = document.getElementById('titleBar'),
       titleMain = document.getElementById('titleMain'),
       titleSub = document.getElementById('titleSub'),
+      sceneName = document.getElementById('sceneName'),
       tip = document.getElementById('tip'),
       progress = document.getElementById('progress'),
       loading = document.getElementById('loading'),
@@ -505,27 +513,26 @@ function animateReturn(groupName, withShared) {
    UI 更新
    ══════════════════════════════════════════ */
 function updateUI() {
-  // 上升阶段显示带后缀的标题
-  if (currentStep >= 0 && currentStep < steps.length) {
-    const step = steps[currentStep];
-    if (step.action === 'rise' && riseTitleSuffix[step.group]) {
-      titleMain.textContent = titlePrefix + ' · ' + riseTitleSuffix[step.group];
-    } else {
-      titleMain.textContent = titlePrefix;
-    }
-  } else {
-    titleMain.textContent = titlePrefix;
-  }
+  // 左上角始终只显示模型名，后缀标题放到中间 scene-name
+  titleMain.textContent = titlePrefix;
 
   if (currentStep < 0) {
     titleSub.textContent = '准备就绪';
+    sceneName.textContent = '准备就绪';
     tip.textContent = '点击屏幕开始演示';
   } else if (currentStep >= steps.length) {
     titleSub.textContent = '演示完成';
+    sceneName.textContent = '解字游园';
     tip.textContent = '演示完成！点击屏幕重新开始';
   } else {
     titleSub.textContent = '第 ' + (currentStep + 1) + ' / ' + steps.length + ' 步';
     const step = steps[currentStep];
+    // 上升/落回阶段中间一直显示该组后缀字（定/破/磨/风），不显示步骤数
+    if (riseTitleSuffix[step.group]) {
+      sceneName.textContent = riseTitleSuffix[step.group];
+    } else {
+      sceneName.textContent = '';
+    }
     const actionText = step.action === 'rise' ? '上升中…' : '返回中…';
     tip.textContent = step.label + (busy ? ' ' + actionText : '');
   }

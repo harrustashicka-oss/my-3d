@@ -22,6 +22,12 @@
   .title-bar.hide{opacity:0}
   .title-main{font-size:26px;font-weight:600;letter-spacing:1px}
   .title-sub{font-size:15px;opacity:.75;margin-top:6px;letter-spacing:1px}
+  .scene-name{margin-top:14px;text-align:center;color:#fff;font-size:32px;
+    font-weight:600;letter-spacing:10px;padding-left:10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.65);pointer-events:none;
+    opacity:0;transform:translateY(-10px);transition:opacity .35s ease,transform .35s ease}
+  .scene-name.show{opacity:1;transform:translateY(0)}
+  .title-bar.playing .title-sub{display:none}
   .bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:18px 22px calc(20px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(0,0,0,.6),transparent);color:#fff;z-index:5;text-align:center}
   .tip{font-size:14px;opacity:.95}
@@ -53,6 +59,7 @@
   <div class="title-main">小模型5</div>
   <div class="title-sub" id="titleSub">点击屏幕展开模型</div>
   <div class="title-sub" style="opacity:.5;font-size:13px;margin-top:2px">空间搭建交互动画演示</div>
+  <div class="scene-name" id="sceneName"></div>
 </div>
 <div class="controls">
   <button class="btn" id="muteBtn" title="音乐开关">&#128266;</button>
@@ -83,6 +90,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const titleBar=document.getElementById('titleBar'),
       titleSub=document.getElementById('titleSub'),
+      sceneName=document.getElementById('sceneName'),
       tip=document.getElementById('tip'),
       loading=document.getElementById('loading'),
       loadTxt=document.getElementById('loadTxt'),
@@ -282,7 +290,8 @@ function animate(){
     controls.autoRotate=wasRotating;
     titleSub.textContent='模型已展开';
     tip.textContent='点击屏幕：收回模型';
-    titleBar.classList.remove('hide');
+    titleBar.classList.remove('playing');
+    sceneName.classList.remove('show');
   }
   if(action&&state==='closing'&&action.time<=0.05){
     action.paused=true;
@@ -291,7 +300,8 @@ function animate(){
     controls.autoRotate=wasRotating;
     titleSub.textContent='点击屏幕展开模型';
     tip.textContent='点击屏幕：展开 / 收回';
-    titleBar.classList.remove('hide');
+    titleBar.classList.remove('playing');
+    sceneName.classList.remove('show');
   }
 
   controls.update();
@@ -314,7 +324,9 @@ function toggleModel(){
   if(state==='closed'){
     // 展开（正放）
     state='opening';
-    titleBar.classList.add('hide');
+    titleBar.classList.add('playing');
+    sceneName.textContent='模型展开中…';
+    sceneName.classList.add('show');
     wasRotating=controls.autoRotate;
     controls.autoRotate=false;
     action.paused=false;
@@ -328,7 +340,9 @@ function toggleModel(){
     // 收回（倒放）
     const wasFullyOpen=(state==='open'||action.time>=animDuration-0.05);
     state='closing';
-    titleBar.classList.add('hide');
+    titleBar.classList.add('playing');
+    sceneName.textContent='模型收回中…';
+    sceneName.classList.add('show');
     wasRotating=controls.autoRotate;
     controls.autoRotate=false;
 
